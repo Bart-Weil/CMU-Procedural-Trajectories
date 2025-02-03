@@ -1,26 +1,30 @@
 import functools
 
 import math
+import random
+
 import numpy as np
 import numpy.typing as npt
+
+import scipy.stats as stats
 
 from typing import List, Tuple
 
 class Camera:
-    def __init__(this, opt_center: npt.NDArray[np.float64],
+    def __init__(self, opt_center: npt.NDArray[np.float64],
                  cam_look_at: npt.NDArray[np.float64],
                  cam_up: npt.NDArray[np.float64],
                  cam_intrinsic: npt.NDArray[np.float64]):
         
-        this.opt_center = opt_center
-        this.cam_look_at = cam_look_at
-        this.cam_up = cam_up
-        this.cam_intrinsic = cam_intrinsic
+        self.opt_center = opt_center
+        self.cam_look_at = cam_look_at
+        self.cam_up = cam_up
+        self.cam_intrinsic = cam_intrinsic
 
         cam_z = cam_look_at - opt_center
         cam_z = cam_z / np.linalg.norm(cam_z)
         
-        cam_x = np.cross(cam_x, up)
+        cam_x = np.cross(cam_z, cam_up)
         cam_x = cam_x / np.linalg.norm(cam_x)
         
         cam_y = np.cross(cam_x, cam_z)
@@ -30,12 +34,12 @@ class Camera:
         
         cam_ext = np.hstack([R, t.reshape(3, 1)])
         
-        this.cam_mat = cam_intrinsic @ cam_ext
+        self.cam_mat = cam_intrinsic @ cam_ext
 
     # Project row-wise array of points with camera
-    def project_points(this, points: npt.NDArray[np.float64]) -> List[npt.NDArray[np.float64]]:
+    def project_points(self, points: npt.NDArray[np.float64]) -> List[npt.NDArray[np.float64]]:
         points_hom = np.hstack([points, np.ones((points.shape[0], 1))])
-        projected_hom = points_hom @ this.cam_mat.T
+        projected_hom = points_hom @ self.cam_mat.T
         projected_points = proj_hom[:, :2] / proj_hom[:, 2, np.newaxis]
 
         return projected_points
@@ -50,8 +54,7 @@ def capture_poses(poses: List[npt.NDArray[np.float64]], cams: List[Camera]) -> L
 
 # Procedurally Generate Camera Trajectories
 def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
-                      cam_intrinsic: npt.NDArray[np.float64],
-                      max_dist: float,
+                      dist: float,
                       min_h: float,
                       max_h: float,
                       rotational_factor: float,
@@ -62,7 +65,11 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     roll_factor = 0.1
     zoom_factor = 0.05
     n_starting_pos = 4
-    min_freq = 2
+    min_freq_lat = 2
+    max_freq_lat = 6
+    min_freq_vert = 7
+    max_freq_vert = 13
+    min_freq = 1
     max_freq = 6
     smoothing_window = 20
 
@@ -72,7 +79,7 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     o_x = 640
     o_y = 360
 
-    seed = 42
+    seed = random.randint(0, 200)
 
     n_frames = len(poses)
 
@@ -83,25 +90,27 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     # Generate camera positions
     path_points = np.linspace(start, end, n_frames)
 
-    lateral_disp = generate_sin_sq_noise(min_freq, max_freq, n_frames, seed)
-    vertical_disp = (max_h - min_h)/2 * generate_sin_sq_noise(min_freq, max_freq, n_frames, seed+1) + (max_h - min_h)/2
+    lateral_disp = generate_sin_noise(1/n_frames, 1, 5, n_frames, seed)
+    vertical_disp = (max_h - min_h)*(generate_sin_noise(50/n_frames, 5, 8, n_frames, seed+2)-0.5) + (max_h + min_h)/2
 
-    path_lateral = (start-end)/2 - bound_center
+    path_lateral = (start+end)/2 - bound_center
     path_lateral = path_lateral * lateral_factor/np.linalg.norm(path_lateral)
 
+    print(vertical_disp)
+
     path_points_xy = path_points + (lateral_disp[:, np.newaxis] * path_lateral)
-    path_points = np.hstack((path_points_xy, vertical_disp))
+    path_points = np.hstack((path_points_xy, vertical_disp[:, np.newaxis]))
 
     # Generate camera orientations
     root_positions = np.array([pose[0, :] for pose in poses])
-    tracking_positions = moving_average_rows(root_positions, smoothing_window)
+    tracking_positions = root_positions
 
-    roll_noise = roll_factor * math.pi * (generate_sin_sq_noise(min_freq, max_freq, n_frames, seed+2) - 0.5)
-    tracking_noise_x = generate_sin_sq_noise(min_freq, max_freq, n_frames, seed+3)
-    tracking_noise_y = generate_sin_sq_noise(min_freq, max_freq, n_frames, seed+4)
-    tracking_noise_z = generate_sin_sq_noise(min_freq, max_freq, n_frames, seed+5)
+    roll_noise = roll_factor * math.pi * (generate_sin_noise(30/n_frames, 5, 5, n_frames, seed+2) - 0.5)
+    tracking_noise_x = generate_sin_noise(15/n_frames, 5, 5, n_frames, seed+3)
+    tracking_noise_y = generate_sin_noise(15/n_frames, 5, 5, n_frames, seed+4)
+    tracking_noise_z = generate_sin_noise(15/n_frames, 5, 5, n_frames, seed+5)
 
-    tracking_noise = rotational_factor * np.hstack((tracking_noise_x, tracking_noise_y, tracking_noise_z))
+    tracking_noise = rotational_factor * np.vstack((tracking_noise_x, tracking_noise_y, tracking_noise_z)).T
     noisy_tracking_positions = tracking_positions + tracking_noise
 
     cam_opt_centers = list(path_points)
@@ -109,7 +118,7 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     cam_ups = [get_camera_up(cam_look_ats[i], cam_opt_centers[i], roll_noise[i]) for i in range(n_frames)]
 
     # Generate camera intrinsics
-    zoom_noise = zoom_factor*(generate_sin_sq_noise(min_freq, max_freq, n_frames, seed+6)-0.5) + 1
+    zoom_noise = zoom_factor*(generate_sin_noise(1/n_frames, 1, 5, n_frames, seed+6)-0.5) + 1
     cam_intrinsics = [get_cam_intrinsic(F_x, F_y, o_x, o_y, zoom_noise[i]) for i in range(n_frames)]
 
     return [Camera(cam_opt_centers[i], cam_look_ats[i], cam_ups[i], cam_intrinsics[i]) for i in range(n_frames)]
@@ -124,22 +133,29 @@ def moving_average_rows(arr, window_size, mode='edge'):
     return np.apply_along_axis(lambda row: np.convolve(row, kernel, mode='valid'), axis=1, arr=arr_padded)
 
 # Generate N linspaced samples of composed sin^2 signals of various frequencies
-def generate_sin_sq_noise(min_freq: int, max_freq: int, N: int, seed = 42) -> npt.NDArray[np.float64]:
+def generate_sin_noise(mu: float, sigma: float, n_signals: int, N: int, seed = 42) -> npt.NDArray[np.float64]:
     np.random.seed(seed)
+        
+    t = np.linspace(0, 1, N, endpoint=False)
     
-    freqs = np.linspace(min_freq, max_freq, N)
-    amplitudes = np.random.uniform(0, 1, N)
-    t = np.linspace(0, 1, N)
+    frequencies = np.random.normal(mu, sigma, n_signals)
+    pdf_values = stats.norm.pdf(frequencies, mu, sigma)
+    amplitudes = pdf_values / np.max(pdf_values)
     
-    signal = np.zeros_like(t)
-    for i in range(N):
-        signal += amplitudes[i] * 0.5 * np.sin(2*math.pi*freqs[i]*t - math.pi/2) + 0.5
-    signal /= np.max(np.abs(signal))
+    amplitudes = 0.5 + 0.5 * amplitudes
+
+    phases = np.random.uniform(0, 2 * np.pi, n_signals)
+    
+    signal = np.zeros(N)
+    for f, a, p in zip(frequencies, amplitudes, phases):
+        signal += a * np.sin(2 * np.pi * f * t + p)
+
+    signal = (signal - np.min(signal)) / (np.max(signal) - np.min(signal))
     
     return signal
 
 def get_path_endpoints(bound_center: npt.NDArray[np.float64], bound_r: float, dist: float) -> Tuple[npt.NDArray[np.float64]]:
-    start = np.array([bound_center - bound_r - dist, 0])
+    start = bound_center - np.array([bound_r + dist, 0])
 
     linear_angle = math.asin(bound_r/(bound_r+dist))
     linear_midpoint_dist = (bound_r + dist) * math.cos(linear_angle)
