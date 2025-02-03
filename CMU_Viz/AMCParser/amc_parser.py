@@ -3,14 +3,6 @@ import matplotlib.pyplot as plt
 from transforms3d.euler import euler2mat
 from mpl_toolkits.mplot3d import Axes3D
 
-class CMU_pose:
-  def __init__(root):
-    pass
-  def to_numpy():
-    pass
-  def from_numpy():
-    pass
-
 class Joint:
   def __init__(self, name, direction, length, axis, dof, limits):
     """
@@ -83,21 +75,19 @@ class Joint:
       ys.append(0.056444 * joint.coordinate[1, 0])
       zs.append(0.056444 * joint.coordinate[2, 0])
 
-    return np.array([xs, ys, zs]).T
+    return np.array([zs, xs, ys]).T
 
-  def draw(self):
+  def draw(self, fig, ax):
     joints = self.to_dict()
-    fig = plt.figure()
-    ax = Axes3D(fig,auto_add_to_figure=False)
     ax.set_box_aspect([1,1,1])
-    fig.add_axes(ax)
 
     xs, ys, zs = [], [], []
     for joint in joints.values():
       xs.append(0.056444 * joint.coordinate[0, 0])
       ys.append(0.056444 * joint.coordinate[1, 0])
       zs.append(0.056444 * joint.coordinate[2, 0])
-    plt.plot(zs, xs, ys, 'b.')
+    plt.plot(zs[1:], xs[1:], ys[1:], 'b.')
+    plt.plot(zs[0], xs[0], ys[0], 'g.')
 
     for joint in joints.values():
       child = joint
@@ -107,7 +97,6 @@ class Joint:
         ys = [0.056444 * child.coordinate[1, 0], 0.056444 * parent.coordinate[1, 0]]
         zs = [0.056444 * child.coordinate[2, 0], 0.056444 * parent.coordinate[2, 0]]
         plt.plot(zs, xs, ys, 'r')
-    plt.show()
 
   def to_dict(self):
     ret = {self.name: self}

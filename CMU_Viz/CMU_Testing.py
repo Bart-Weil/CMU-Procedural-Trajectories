@@ -5,6 +5,10 @@ from mpl_toolkits.mplot3d import Axes3D  # This import registers the 3D projecti
 from AMCParser.amc_parser import *
 from Camera import *
 
+# Create a new figure and a 3D axes object.
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
 def add_sphere(ax, center, radius, resolution=20, color='b', alpha=0.5):
     u = np.linspace(0, 2 * np.pi, resolution)
     v = np.linspace(0, np.pi, resolution)
@@ -19,30 +23,34 @@ def add_sphere(ax, center, radius, resolution=20, color='b', alpha=0.5):
 joints = parse_asf("../Datasets/CMU/subjects/01/01.asf")
 motions = parse_amc('../Datasets/CMU/subjects/01/01_01.amc')
 poses = []
+
 for i in range(len(motions)):
     joints['root'].set_motion(motions[i])
     poses.append(joints['root'].to_cartesian())
 
-cam_poses = generate_cam_seqs(poses, 10, 1.5, 1.8, 0.25, 3.5, 1)
+cam_poses, track_pos = generate_cam_seqs(poses, dist=3, min_h=1.5, max_h=1.8, rotational_factor=0.25, lateral_factor=3.5, safe_dist=0.25, n_seqs=1)
 points = [pose.opt_center for pose in cam_poses]
 
 # Extract x, y, and z coordinates from the list of points.
-xs = [p[0] for p in points]
-ys = [p[1] for p in points]
-zs = [p[2] for p in points]
+cam_xs = [p[0] for p in points]
+cam_ys = [p[1] for p in points]
+cam_zs = [p[2] for p in points]
 
-# Create a new figure and a 3D axes object.
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+tracking_xs = [track_pos[i, 0] for i in range(len(track_pos))]
+tracking_ys = [track_pos[i, 1] for i in range(len(track_pos))]
+tracking_zs = [track_pos[i, 2] for i in range(len(track_pos))]
+
+joints['root'].set_motion(motions[50])
+joints['root'].draw(fig, ax)
+
 ax.set_xlim(-10, 10)
 ax.set_ylim(-10, 10)
 ax.set_zlim(-10, 10)
 
-bound_center, bound_r = get_bounding_circle(poses, 1.5)
-add_sphere(ax, [bound_center[0], bound_center[1], 1.0], bound_r)
-
 # Plot the points using a 3D scatter plot.
-ax.scatter(xs, ys, zs, c='r', marker='o')
+ax.scatter(cam_xs, cam_ys, cam_zs, c='r', marker='o')
+ax.scatter(tracking_xs, tracking_ys, tracking_zs, c='g', marker='o')
+
 
 # Label the axes and add a title.
 ax.set_xlabel('X Axis')

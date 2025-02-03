@@ -64,14 +64,8 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     # Additional parameters
     roll_factor = 0.1
     zoom_factor = 0.05
-    n_starting_pos = 4
-    min_freq_lat = 2
-    max_freq_lat = 6
-    min_freq_vert = 7
-    max_freq_vert = 13
-    min_freq = 1
-    max_freq = 6
-    smoothing_window = 20
+    smoothing_window = 81
+    assert(smoothing_window % 2 == 1)
 
     # Camera Intrinsics
     F_x = 1000
@@ -91,19 +85,17 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     path_points = np.linspace(start, end, n_frames)
 
     lateral_disp = generate_sin_noise(1/n_frames, 1, 5, n_frames, seed)
-    vertical_disp = (max_h - min_h)*(generate_sin_noise(50/n_frames, 5, 8, n_frames, seed+2)-0.5) + (max_h + min_h)/2
+    vertical_disp = (max_h - min_h)*(generate_sin_noise(20/n_frames, 5, 8, n_frames, seed+2)-0.5) + (max_h + min_h)/2
 
     path_lateral = (start+end)/2 - bound_center
     path_lateral = path_lateral * lateral_factor/np.linalg.norm(path_lateral)
-
-    print(vertical_disp)
 
     path_points_xy = path_points + (lateral_disp[:, np.newaxis] * path_lateral)
     path_points = np.hstack((path_points_xy, vertical_disp[:, np.newaxis]))
 
     # Generate camera orientations
     root_positions = np.array([pose[0, :] for pose in poses])
-    tracking_positions = root_positions
+    tracking_positions = moving_average_rows(root_positions, smoothing_window)
 
     roll_noise = roll_factor * math.pi * (generate_sin_noise(30/n_frames, 5, 5, n_frames, seed+2) - 0.5)
     tracking_noise_x = generate_sin_noise(15/n_frames, 5, 5, n_frames, seed+3)
@@ -121,16 +113,18 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     zoom_noise = zoom_factor*(generate_sin_noise(1/n_frames, 1, 5, n_frames, seed+6)-0.5) + 1
     cam_intrinsics = [get_cam_intrinsic(F_x, F_y, o_x, o_y, zoom_noise[i]) for i in range(n_frames)]
 
-    return [Camera(cam_opt_centers[i], cam_look_ats[i], cam_ups[i], cam_intrinsics[i]) for i in range(n_frames)]
+    return [Camera(cam_opt_centers[i], cam_look_ats[i], cam_ups[i], cam_intrinsics[i]) for i in range(n_frames)], noisy_tracking_positions
 
 # Moving Average for smoothing camera tracking
 def moving_average_rows(arr, window_size, mode='edge'):
     kernel = np.ones(window_size) / window_size
     pad_width = window_size // 2
+    print(arr)
     
-    arr_padded = np.pad(arr, ((0, 0), (pad_width, pad_width)), mode=mode)
+    arr_padded = np.pad(arr, ((pad_width, pad_width), (0, 0)), mode=mode)
+    print(arr_padded)
 
-    return np.apply_along_axis(lambda row: np.convolve(row, kernel, mode='valid'), axis=1, arr=arr_padded)
+    return np.apply_along_axis(lambda row: np.convolve(row, kernel, mode='valid'), axis=0, arr=arr_padded)
 
 # Generate N linspaced samples of composed sin^2 signals of various frequencies
 def generate_sin_noise(mu: float, sigma: float, n_signals: int, N: int, seed = 42) -> npt.NDArray[np.float64]:
