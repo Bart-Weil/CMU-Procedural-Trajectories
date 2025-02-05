@@ -28,17 +28,13 @@ for i in range(len(motions)):
     joints['root'].set_motion(motions[i])
     poses.append(joints['root'].to_cartesian())
 
-cam_poses, track_pos = generate_cam_seqs(poses, dist=3, min_h=1.5, max_h=1.8, rotational_factor=0.25, lateral_factor=3.5, safe_dist=0.25, n_seqs=1)
+cam_poses = generate_cam_seqs(poses, 10)[6]
 points = [pose.opt_center for pose in cam_poses]
 
 # Extract x, y, and z coordinates from the list of points.
 cam_xs = [p[0] for p in points]
 cam_ys = [p[1] for p in points]
 cam_zs = [p[2] for p in points]
-
-tracking_xs = [track_pos[i, 0] for i in range(len(track_pos))]
-tracking_ys = [track_pos[i, 1] for i in range(len(track_pos))]
-tracking_zs = [track_pos[i, 2] for i in range(len(track_pos))]
 
 joints['root'].set_motion(motions[50])
 joints['root'].draw(fig, ax)
@@ -49,8 +45,6 @@ ax.set_zlim(-10, 10)
 
 # Plot the points using a 3D scatter plot.
 ax.scatter(cam_xs, cam_ys, cam_zs, c='r', marker='o')
-ax.scatter(tracking_xs, tracking_ys, tracking_zs, c='g', marker='o')
-
 
 # Label the axes and add a title.
 ax.set_xlabel('X Axis')
