@@ -1,7 +1,98 @@
 import numpy as np
+
+import numpy.typing as npt
+
 import matplotlib.pyplot as plt
-from transforms3d.euler import euler2mat
 from mpl_toolkits.mplot3d import Axes3D
+
+from transforms3d.euler import euler2mat
+
+from typing import List
+
+class CMU_Pose:
+  # Depth first ordering of CMU joints
+  joints = ['root', 'lhipjoint', 'lfemur',
+            'ltibia', 'lfoot', 'ltoes',
+            'rhipjoint', 'rfemur','rtibia',
+            'rfoot', 'rtoes', 'lowerback',
+            'upperback', 'thorax', 'lowerneck',
+            'upperneck', 'head', 'lclavicle',
+            'lhumerus', 'lradius', 'lwrist',
+            'lhand', 'lfingers', 'lthumb',
+            'rclavicle', 'rhumerus', 'rradius',
+            'rwrist', 'rhand', 'rfingers',
+            'rthumb']
+
+  adjacency = {
+    'root': ['lhipjoint', 'rhipjoint', 'lowerback'],
+    'lhipjoint': ['lfemur'],
+    'lfemur': ['ltibia'],
+    'ltibia': ['lfoot'],
+    'lfoot': ['ltoes'],
+    'ltoes': [],
+    'rhipjoint': ['rfemur'],
+    'rfemur': ['rtibia'],
+    'rtibia': ['rfoot'],
+    'rfoot': ['rtoes'],
+    'rtoes': [],
+    'lowerback': ['upperback'],
+    'upperback': ['thorax'],
+    'thorax': ['lowerneck', 'lclavicle', 'rclavicle'],
+    'lowerneck': ['upperneck'],
+    'upperneck': ['head'],
+    'head': [],
+    'lclavicle': ['lhumerus'],
+    'lhumerus': ['lradius'],
+    'lradius': ['lwrist'],
+    'lwrist': ['lhand'],
+    'lhand': ['lfingers', 'lthumb'],
+    'lfingers': [],
+    'lthumb': [],
+    'rclavicle': ['rhumerus'],
+    'rhumerus': ['rradius'],
+    'rradius': ['rwrist'],
+    'rwrist': ['rhand'],
+    'rhand': ['rfingers', 'rthumb'],
+    'rfingers': [],
+    'rthumb': []
+  }
+
+  def __init__(self, joint_locs: List[npt.NDArray[np.float64]]):
+
+    self.joint_locs = dict(zip(self.joints, joint_locs))
+
+  def to_numpy(self):
+    return np.array(np.vstack(list(self.joint_locs.values())))
+
+  def plot_3D(self, fig, ax):
+    assert(self.joint_locs['root'].shape[0] == 3)
+    xs, ys, zs = [], [], []
+    for joint in self.joints:
+      joint_coord = self.joint_locs[joint]
+      xs.append(joint_coord[0])
+      ys.append(joint_coord[1])
+      zs.append(joint_coord[2])
+      plt.plot(xs, ys, zs, 'b.')
+      for child in self.adjacency[joint]:
+        child_coord = self.joint_locs[child]
+        xs = [child_coord[0], joint_coord[0]]
+        ys = [child_coord[1], joint_coord[1]]
+        zs = [child_coord[2], joint_coord[2]]
+        plt.plot(xs, ys, zs, 'r')
+
+  def plot_2D(self, fig, ax):
+    assert(self.joint_locs['root'].shape[0] == 2)
+    xs, ys = [], []
+    for joint in self.joints:
+      joint_coord = self.joint_locs[joint]
+      xs.append(joint_coord[0])
+      ys.append(joint_coord[1])
+      plt.plot(xs, ys, 'b.')
+      for child in self.adjacency[joint]:
+        child_coord = self.joint_locs[child]
+        xs = [child_coord[0], joint_coord[0]]
+        ys = [child_coord[1], joint_coord[1]]
+        plt.plot(xs, ys, 'r')
 
 class Joint:
   def __init__(self, name, direction, length, axis, dof, limits):
@@ -66,37 +157,15 @@ class Joint:
     for child in self.children:
       child.set_motion(motion)
 
-  def to_cartesian(self):
+  def get_pose(self):
     joints = self.to_dict()
-
     xs, ys, zs = [], [], []
     for joint in joints.values():
       xs.append(0.056444 * joint.coordinate[0, 0])
       ys.append(0.056444 * joint.coordinate[1, 0])
       zs.append(0.056444 * joint.coordinate[2, 0])
-
-    return np.array([zs, xs, ys]).T
-
-  def draw(self, fig, ax):
-    joints = self.to_dict()
-    ax.set_box_aspect([1,1,1])
-
-    xs, ys, zs = [], [], []
-    for joint in joints.values():
-      xs.append(0.056444 * joint.coordinate[0, 0])
-      ys.append(0.056444 * joint.coordinate[1, 0])
-      zs.append(0.056444 * joint.coordinate[2, 0])
-    plt.plot(zs[1:], xs[1:], ys[1:], 'b.')
-    plt.plot(zs[0], xs[0], ys[0], 'g.')
-
-    for joint in joints.values():
-      child = joint
-      if child.parent is not None:
-        parent = child.parent
-        xs = [0.056444 * child.coordinate[0, 0], 0.056444 * parent.coordinate[0, 0]]
-        ys = [0.056444 * child.coordinate[1, 0], 0.056444 * parent.coordinate[1, 0]]
-        zs = [0.056444 * child.coordinate[2, 0], 0.056444 * parent.coordinate[2, 0]]
-        plt.plot(zs, xs, ys, 'r')
+    # Quirky axis order used by .asf
+    return CMU_Pose(np.array([zs, xs, ys]).T)
 
   def to_dict(self):
     ret = {self.name: self}

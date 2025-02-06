@@ -9,39 +9,7 @@ import scipy.stats as stats
 
 from typing import List, Tuple
 
-class Camera:
-    def __init__(self, opt_center: npt.NDArray[np.float64],
-                 cam_look_at: npt.NDArray[np.float64],
-                 cam_up: npt.NDArray[np.float64],
-                 cam_intrinsic: npt.NDArray[np.float64]):
-        
-        self.opt_center = opt_center
-        self.cam_look_at = cam_look_at
-        self.cam_up = cam_up
-        self.cam_intrinsic = cam_intrinsic
-
-        cam_z = cam_look_at - opt_center
-        cam_z = cam_z / np.linalg.norm(cam_z)
-        
-        cam_x = np.cross(cam_z, cam_up)
-        cam_x = cam_x / np.linalg.norm(cam_x)
-        
-        cam_y = np.cross(cam_x, cam_z)
-        
-        R = np.vstack([cam_x, cam_y, -cam_z]) 
-        t = -R @ opt_center
-        
-        cam_ext = np.hstack([R, t.reshape(3, 1)])
-        
-        self.cam_mat = cam_intrinsic @ cam_ext
-
-    # Project row-wise array of points with camera
-    def project_points(self, points: npt.NDArray[np.float64]) -> List[npt.NDArray[np.float64]]:
-        points_hom = np.hstack([points, np.ones((points.shape[0], 1))])
-        projected_hom = points_hom @ self.cam_mat.T
-        projected_points = proj_hom[:, :2] / proj_hom[:, 2, np.newaxis]
-
-        return projected_points
+from Camera import *
 
 # Generate camera trajectories
 def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
@@ -80,7 +48,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
                      safe_dist: float,
                      rng) -> List[Camera]:
     # Additional parameters
-    roll_factor = 0.1
+    roll_factor = 0.05 *  math.pi/180
     zoom_factor = 0.05
     smoothing_window = 81
     assert(smoothing_window % 2 == 1)
@@ -93,7 +61,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
 
     n_frames = len(poses)
 
-    bound_center, bound_r = get_bounding_circle(poses, safe_dist)
+    bound_center, bound_r = get_bounding_sphere(poses, safe_dist)
 
     start, end = get_path_endpoints(start_angle, bound_center, bound_r, dist)
 
@@ -114,7 +82,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
     root_positions = np.array([pose[0, :] for pose in poses])
     tracking_positions = moving_average_rows(root_positions, smoothing_window)
 
-    roll_noise = roll_factor * math.pi * (generate_sin_noise(30/n_frames, 5, 5, n_frames, rng) - 0.5)
+    roll_noise = roll_factor * 2 * math.pi * (generate_sin_noise(30/n_frames, 5, 5, n_frames, rng) - 0.5)
     tracking_noise_x = generate_sin_noise(15/n_frames, 5, 5, n_frames, rng)
     tracking_noise_y = generate_sin_noise(15/n_frames, 5, 5, n_frames, rng)
     tracking_noise_z = generate_sin_noise(15/n_frames, 5, 5, n_frames, rng)
@@ -176,7 +144,7 @@ def get_path_endpoints(start_angle: float,
     end_rot = R @ (end - bound_center) + bound_center
     return start_rot, end_rot
 
-def get_bounding_circle(poses: List[npt.NDArray[np.float64]], safe_dist: float) -> Tuple[npt.NDArray[np.float64], float]:
+def get_bounding_sphere(poses: List[npt.NDArray[np.float64]], safe_dist: float) -> Tuple[npt.NDArray[np.float64], float]:
     roots = np.array([pose[0, :] for pose in poses])
     x_min = roots[:, 0].min()
     x_max = roots[:, 0].max()
@@ -188,14 +156,24 @@ def get_bounding_circle(poses: List[npt.NDArray[np.float64]], safe_dist: float) 
     return bound_center, bound_r
     
 def get_camera_up(cam_look_at: npt.NDArray[np.float64], cam_pos: npt.NDArray[np.float64], roll: float) -> npt.NDArray[np.float64]:
-    # Camera look_at never vertical for our purposes
     cam_forward = cam_look_at - cam_pos
-    world_up = np.array([0, 0, 1])
+    cam_forward /= np.linalg.norm(cam_forward)
+
+    world_up = np.array([0, 0, 1], dtype=np.float64)
 
     cam_right = np.cross(world_up, cam_forward)
-    cam_right = cam_right/np.linalg.norm(cam_right)
+    
+    if np.linalg.norm(cam_right) < 1e-6:
+        cam_right = np.array([1, 0, 0])
 
-    return np.cross(cam_forward, cam_right) * np.cos(roll) + cam_right * np.sin(roll)
+    cam_right /= np.linalg.norm(cam_right)
+
+    # Ensure up is positive
+    cam_up = np.cross(cam_right, cam_forward)
+    if cam_up[2] < 0:
+        cam_up = -cam_up
+
+    return cam_up * np.cos(roll) + cam_right * np.sin(roll)
 
 def get_cam_intrinsic(F_x: float, F_y: float, o_x: float, o_y: float, zoom=1.0, s=0):
     return np.array([
