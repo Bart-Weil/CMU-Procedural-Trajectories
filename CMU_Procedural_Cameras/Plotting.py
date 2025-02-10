@@ -11,6 +11,8 @@ from Camera import *
 from Procedural_Cameras import *
 from AMCParser.amc_parser import *
 
+from tqdm import tqdm
+
 def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], filename_prefix="", framerate=120):
     step = 120 // framerate
 
@@ -31,12 +33,12 @@ def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], fi
     floor_points = np.column_stack((xx.ravel(), yy.ravel(), np.zeros_like(xx.ravel())))
 
     # Plot frames
-    num_frames = len(poses) // step
+    n_frames = len(poses) // step
     
-    for i in range(num_frames):
+    for i in tqdm(range(n_frames)):
         frame = step*i
         projected_pose = cams[frame].project_points(poses[frame])
-        projected_floor_points = cams[frame].project_points(floor_points).reshape((cells_x, cells_y, 2))
+        projected_floor_points = cams[frame].project_points(floor_points).reshape((cells_x, cells_y, 2))[:, :2] # Remove occlusion flag
 
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -44,9 +46,9 @@ def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], fi
         ax.set_xlim(0, cams[frame].screen_w)
         ax.set_ylim(0, cams[frame].screen_h)
 
-        plot_projected_pose(projected_pose, projected_floor_points, cams[frame].screen_w, cams[frame].screen_h, fig, ax)
+        plot_projected_scene(projected_pose, projected_floor_points, cams[frame].screen_w, cams[frame].screen_h, fig, ax)
 
-        filename = filename_prefix + (f"%0{len(str(num_frames))}d" % i) + ".png"
+        filename = filename_prefix + (f"%0{len(str(n_frames))}d" % i) + ".png"
         plt.savefig(filename)
         plt.close()
 
@@ -58,7 +60,7 @@ def is_quad_visible(quad, screen_w: int, screen_h: int):
         min(y_coords) >= 0 and max(y_coords) <= screen_h
     )
 
-def plot_projected_pose(projected_pose: npt.NDArray[np.float64],
+def plot_projected_scene(projected_pose: npt.NDArray[np.float64],
                         projected_floor_grid: npt.NDArray[np.float64],
                         screen_w: int, screen_h: int,
                         fig, ax):
@@ -77,6 +79,10 @@ def plot_projected_pose(projected_pose: npt.NDArray[np.float64],
             
             if is_quad_visible(quad, screen_w, screen_h):
                 ax.fill(*zip(*quad), color='gray', edgecolor='white')
+
+def plot_projected_pose(projected_pose: npt.NDArray[np.float64], fig, ax):
+    pose_2D = CMU_Pose(projected_pose)
+    pose_2D.plot_2D(fig, ax)
 
 def plot_cam_trajectory(poses: npt.NDArray[np.float64], cams: List[Camera]):
     fig = plt.figure()

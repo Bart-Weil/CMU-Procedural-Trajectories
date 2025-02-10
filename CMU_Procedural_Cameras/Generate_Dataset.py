@@ -82,5 +82,37 @@ def generate_dataset():
             prefix = os.path.join(output_dir, subject + "_" + f"{i+1}")
             generate_data_for_sequence(prefix, joints_file, motion_file)
 
+def render_scene(scene_path, framerate=60, filename_prefix=""):
+    step = 120 // framerate
+
+    scene_file = open(scene_path, "rb")
+    scene_data = pickle.load(scene_file)
+    scene_file.close()
+    
+    scene_2d_poses = scene_data["pose_2d"][::step]
+
+    scene_cams = scene_data["cam_sequence"]
+
+    cams = [Camera(scene_cams["opt_center"][i], 
+                   scene_cams["cam_look_at"][i],
+                   scene_cams["cam_up"][i],
+                   scene_cams["cam_intrinsic"][i]) for i in range(0, len(scene_cams["opt_center"]), step)]
+
+    n_frames = len(scene_2d_poses)
+    for i in tqdm(range(n_frames)):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        ax.set_xlim(0, cams[i].screen_w)
+        ax.set_ylim(0, cams[i].screen_h)
+
+        plot_projected_pose(scene_2d_poses[i], fig, ax)
+
+        filename = filename_prefix + (f"%0{len(str(n_frames))}d" % i) + ".png"
+        plt.savefig(filename)
+        plt.close()
+
 if __name__ == "__main__":
-    generate_dataset()
+    # generate_dataset()
+    render_scene("../Datasets/CMU_Camera/subjects/01/01_2_1.pkl", framerate=15, filename_prefix="Plots/test_projection")
+

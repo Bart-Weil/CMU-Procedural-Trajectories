@@ -57,15 +57,13 @@ class CMU_Pose:
     'rthumb': []
   }
 
-  def __init__(self, joint_locs: List[npt.NDArray[np.float64]]):
-
-    self.joint_locs = dict(zip(self.joints, joint_locs))
+  def __init__(self, joint_locs: npt.NDArray[np.float64]):
+    self.joint_locs = dict(zip(self.joints, [joint_locs[i, :] for i in range(joint_locs.shape[0])]))
 
   def to_numpy(self):
     return np.array(np.vstack(list(self.joint_locs.values())))
 
   def plot_3D(self, fig, ax):
-    assert(self.joint_locs['root'].shape[0] == 3)
     xs, ys, zs = [], [], []
     for joint in self.joints:
       joint_coord = self.joint_locs[joint]
@@ -81,18 +79,20 @@ class CMU_Pose:
         plt.plot(xs, ys, zs, 'r')
 
   def plot_2D(self, fig, ax):
-    assert(self.joint_locs['root'].shape[0] == 2)
     xs, ys = [], []
-    for joint in self.joints:
-      joint_coord = self.joint_locs[joint]
-      xs.append(joint_coord[0])
-      ys.append(joint_coord[1])
-      plt.plot(xs, ys, 'b.')
-      for child in self.adjacency[joint]:
-        child_coord = self.joint_locs[child]
-        xs = [child_coord[0], joint_coord[0]]
-        ys = [child_coord[1], joint_coord[1]]
-        plt.plot(xs, ys, 'r')
+    for joint_name in self.joints:
+      joint = self.joint_locs[joint_name]
+      is_occluded = joint[2]
+      joint_coord = joint[:2]
+      if not is_occluded:
+        xs.append(joint_coord[0])
+        ys.append(joint_coord[1])
+        plt.plot(xs, ys, 'b.')
+        for child in self.adjacency[joint_name]:
+          child_coord = self.joint_locs[child]
+          xs = [child_coord[0], joint_coord[0]]
+          ys = [child_coord[1], joint_coord[1]]
+          plt.plot(xs, ys, 'r')
 
 class Joint:
   def __init__(self, name, direction, length, axis, dof, limits):

@@ -42,9 +42,22 @@ class Camera:
     def project_points(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         points_hom = np.hstack([points, np.ones((points.shape[0], 1))])
         projected_hom = points_hom @ self.cam_mat.T
+        
+        invalid_depth_mask = projected_hom[:, 2] <= 0
+
         projected_points = projected_hom[:, :2] / projected_hom[:, 2, np.newaxis]
 
-        return projected_points
+        out_of_frame_mask = (
+            (projected_points[:, 0] < 0) | (projected_points[:, 0] >= self.screen_w) |
+            (projected_points[:, 1] < 0) | (projected_points[:, 1] >= self.screen_h)
+        )
+
+        occluded_mask = invalid_depth_mask | out_of_frame_mask
+
+        occluded_flag = np.zeros((projected_points.shape[0], 1))
+        occluded_flag[occluded_mask] = 1
+
+        return np.hstack((projected_points, occluded_flag))
 
     def plot(self, fig, ax):
         scale = 1
