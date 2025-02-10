@@ -16,20 +16,34 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
                       n_seqs: int,
                       seed: int = 42) -> List[List[Camera]]:
     start_increment = 30 # Start point rotation increment (deg)
-    start_angle = 0
 
     rng = np.random.default_rng(seed)
+
+    start_angle = rng.uniform(low=0, high=360)
 
     cam_seqs = []
 
     for i in range(n_seqs):
-        dist = rng.uniform(low=0, high=10)
-        h_range = rng.uniform(low=0.25, high=10, size=2)
-        min_h = float(h_range.min())
-        max_h = float(h_range.max())
-        rot_factor = rng.uniform(low=0.1, high=0.4)
-        lat_factor = rng.uniform(low=2, high=6)
-        safe_dist = rng.uniform(low=0.25, high=8)
+
+        fast_shot = rng.binomial(1, p=0.3)
+        dist = max(rng.normal(loc=4, scale=3), 0) + fast_shot*max(rng.normal(loc=6, scale=2), 0)
+
+        # Height Generation
+        h_range = max(rng.normal(loc=0.75, scale=0.6), 0)
+
+        overhead_shot = rng.binomial(n=1, p=0.2)
+        height_increase = overhead_shot * max(rng.normal(loc=10, scale=4), 0)
+        mean_h = max(rng.normal(loc=1.2, scale=0.1) + height_increase, 0.75)
+        min_h = float(mean_h)
+        max_h = float(mean_h+h_range)
+
+        # Rotational
+        rot_factor = max(rng.normal(loc=0.6, scale=0.2), 0)
+
+        # Lateral
+        lat_factor = max(rng.normal(loc=3.5, scale=3), 0)
+
+        safe_dist = max(rng.normal(loc=1.5, scale=8), 0.25)
 
         cam_seqs.append(generate_cam_seq(poses, start_angle, dist, min_h, max_h, rot_factor, lat_factor, safe_dist, rng))
 
@@ -50,7 +64,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
     # Additional parameters
     roll_factor = 0.05 *  math.pi/180
     zoom_factor = 0.05
-    smoothing_window = 81
+    smoothing_window = 101
     assert(smoothing_window % 2 == 1)
 
     # Camera Intrinsics
@@ -70,7 +84,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
     path_points = start + (end - start)*disp[:, np.newaxis]
 
     lateral_disp = generate_sin_noise(1/n_frames, 1, 5, n_frames, rng)
-    vertical_disp = (max_h - min_h)*(generate_sin_noise(20/n_frames, 5, 8, n_frames, rng)-0.5) + (max_h + min_h)/2
+    vertical_disp = (max_h - min_h)*(generate_sin_noise(20/n_frames, 5, 20, n_frames, rng)-0.5) + (max_h + min_h)/2
 
     path_lateral = (start+end)/2 - bound_center
     path_lateral = path_lateral * lateral_factor/np.linalg.norm(path_lateral)
@@ -80,7 +94,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
 
     # Generate camera orientations
     root_positions = np.array([pose[0, :] for pose in poses])
-    tracking_positions = moving_average_rows(root_positions, smoothing_window)
+    tracking_positions = moving_average_rows(root_positions, smoothing_window) + rng.normal(0, 1, (1, 3))
 
     roll_noise = roll_factor * 2 * math.pi * (generate_sin_noise(30/n_frames, 5, 5, n_frames, rng) - 0.5)
     tracking_noise_x = generate_sin_noise(15/n_frames, 5, 5, n_frames, rng)
@@ -132,7 +146,7 @@ def get_path_endpoints(start_angle: float,
                        bound_r: float,
                        dist: float) -> Tuple[npt.NDArray[np.float64]]:
     start = bound_center - np.array([bound_r + dist, 0])
-    path_angle = math.atan(bound_r/dist)
+    path_angle = math.atan(bound_r/(dist + 0.0001))
     end = 2*dist*np.array([math.cos(path_angle), math.sin(path_angle)])
     
     theta = np.radians(start_angle)

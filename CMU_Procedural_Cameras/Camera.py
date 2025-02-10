@@ -28,6 +28,9 @@ class Camera:
         
         self.cam_y = np.cross(self.cam_x, self.cam_z)
 
+        self.screen_w = 2*cam_intrinsic[0, 2]
+        self.screen_h = 2*cam_intrinsic[1, 2]
+
         R = np.vstack([self.cam_x, self.cam_y, self.cam_z]) 
         t = -R @ opt_center
         

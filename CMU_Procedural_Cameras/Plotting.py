@@ -11,19 +11,72 @@ from Camera import *
 from Procedural_Cameras import *
 from AMCParser.amc_parser import *
 
-def plot_projected_pose(projected_pose: npt.NDArray[np.float64], filename=None):
-    fig = plt.figure()
-    ax = fig.add_subplot()
+def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], filename_prefix="", framerate=120):
+    step = 120 // framerate
 
-    ax.set_xlim(0, 1280)
-    ax.set_ylim(0, 720)
+    # Plot Floor, offset by (x, y) of root joint of first pose in sequence
+    floor_x_size = 20
+    floor_y_size = 20
+    grid_size = 1
 
+    origin = np.array([[poses[0][0, 0] - floor_x_size // 2, poses[0][0, 1] - floor_y_size // 2, 0]])
+
+    cells_x = floor_x_size // grid_size
+    cells_y = floor_y_size // grid_size
+
+    x_coords = np.arange(cells_x) * grid_size + origin[0, 0]
+    y_coords = np.arange(cells_y) * grid_size + origin[0, 1]
+    xx, yy = np.meshgrid(x_coords, y_coords)
+
+    floor_points = np.column_stack((xx.ravel(), yy.ravel(), np.zeros_like(xx.ravel())))
+
+    # Plot frames
+    num_frames = len(poses) // step
+    
+    for i in range(num_frames):
+        frame = step*i
+        projected_pose = cams[frame].project_points(poses[frame])
+        projected_floor_points = cams[frame].project_points(floor_points).reshape((cells_x, cells_y, 2))
+
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        ax.set_xlim(0, cams[frame].screen_w)
+        ax.set_ylim(0, cams[frame].screen_h)
+
+        plot_projected_pose(projected_pose, projected_floor_points, cams[frame].screen_w, cams[frame].screen_h, fig, ax)
+
+        filename = filename_prefix + (f"%0{len(str(num_frames))}d" % i) + ".png"
+        plt.savefig(filename)
+        plt.close()
+
+# Helper to check if any part of a projected quad is inside screen space
+def is_quad_visible(quad, screen_w: int, screen_h: int):
+    x_coords, y_coords = zip(*quad)
+    return (
+        min(x_coords) >= 0 and max(x_coords) <= screen_w and
+        min(y_coords) >= 0 and max(y_coords) <= screen_h
+    )
+
+def plot_projected_pose(projected_pose: npt.NDArray[np.float64],
+                        projected_floor_grid: npt.NDArray[np.float64],
+                        screen_w: int, screen_h: int,
+                        fig, ax):
     pose_2D = CMU_Pose(projected_pose)
     pose_2D.plot_2D(fig, ax)
     
-    if filename:
-        fig.savefig(filename)
-        plt.close()
+    # Plot row-wise points
+    for x in range(projected_floor_grid.shape[1] - 1):
+        for y in range(projected_floor_grid.shape[0] - 1):
+            quad = [
+                projected_floor_grid[x, y],
+                projected_floor_grid[x + 1, y],
+                projected_floor_grid[x + 1, y + 1],
+                projected_floor_grid[x, y + 1],
+            ]
+            
+            if is_quad_visible(quad, screen_w, screen_h):
+                ax.fill(*zip(*quad), color='gray', edgecolor='white')
 
 def plot_cam_trajectory(poses: npt.NDArray[np.float64], cams: List[Camera]):
     fig = plt.figure()
