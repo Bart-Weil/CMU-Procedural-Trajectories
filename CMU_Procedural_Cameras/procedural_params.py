@@ -4,8 +4,8 @@
 p_fast_shot = 0.15
 
 # Span of camera path
-path_length_mu = 4
-path_length_std = 3
+path_length_mu = 3
+path_length_std = 2
 
 # Fast shot path length increase
 fast_dist_mu = 4
@@ -38,11 +38,11 @@ lat_factor_mu = 3.5
 lat_factor_std = 3
 
 # Minimum safe distance from subject
-safe_dist = 0.2
+safe_dist = 1.2
 
 # Minimum distance from subject
-min_dist_mu = 0.2
-min_dist_std = 4
+min_dist_mu = 5
+min_dist_std = 5
 
 # -- Camera Intrinsics
 
@@ -60,7 +60,7 @@ o_y = 360
 roll_factor = 0.005
 zoom_factor = 0.05
 # Extent to which we deviate from linear progress through camera path
-disp_factor = 0.5
+disp_factor = 0.7
 # Smooths tracking of root joint
 smoothing_window = 101
 
@@ -70,7 +70,7 @@ smoothing_window = 101
 
 # Progress along linear path:
 disp_mu = 1
-disp_std = 0.1
+disp_std = 2
 disp_signals = 3
 
 # Movement away from linear path:

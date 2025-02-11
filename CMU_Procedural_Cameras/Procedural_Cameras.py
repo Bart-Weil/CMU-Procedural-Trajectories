@@ -24,13 +24,17 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     start_angle = rng.uniform(low=0, high=360)
 
     cam_seqs = []
+    n_frames = len(poses)
+    # Scale mean path length by approx avg sequence length to scale cam velocity for different seq lengths
+    # Actual mean sequence length is 3289.875 frames
+    k_velocity = 1/3000
 
     for i in range(n_seqs):
         fast_shot = rng.binomial(1, p=p_fast_shot)
         
-        path_length = max(rng.normal(loc=path_length_mu, scale=path_length_std), 0)
+        path_length = max(rng.normal(loc=path_length_mu/(k_velocity * n_frames), scale=path_length_std), 0)
         if fast_shot:
-            path_length += max(rng.normal(loc=fast_dist_mu, scale=fast_dist_std), 0)
+            path_length += max(rng.normal(loc=fast_dist_mu/(k_velocity * n_frames), scale=fast_dist_std), 0)
 
         # Height Generation
         overhead_shot = rng.binomial(n=1, p=p_overhead_shot)
@@ -49,7 +53,7 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
         rot_factor = max(rng.normal(loc=rot_factor_mu, scale=rot_factor_std), 0)
 
         # Lateral
-        lat_factor = max(rng.normal(loc=lat_factor_mu, scale=lat_factor_std), 0)
+        lat_factor = max(rng.normal(loc=lat_factor_mu/n_frames, scale=lat_factor_std), 0)
 
         min_dist = max(rng.normal(loc=min_dist_mu, scale=min_dist_std), safe_dist)
 
@@ -66,7 +70,7 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
 # Procedurally Generate Camera Trajectories from a given starting point
 def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
                      start_angle: float,
-                     dist: float,
+                     path_length: float,
                      min_h: float,
                      max_h: float,
                      rotational_factor: float,
@@ -80,7 +84,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
 
     bound_center, bound_r = get_bounding_sphere(poses, min_dist)
 
-    start, end = get_path_endpoints(start_angle, bound_center, bound_r, dist)
+    start, end = get_path_endpoints(start_angle, bound_center, bound_r, path_length)
 
     # Generate camera positions
     linear_disp_noise = generate_sin_noise(disp_mu/n_frames, disp_std, disp_signals, n_frames, rng)
@@ -101,7 +105,7 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
 
     # Generate camera orientations
     root_positions = np.array([pose[0, :] for pose in poses])
-    tracking_positions = moving_average_rows(root_positions, smoothing_window) + rng.normal(loc=0, scale=0.3, size=(1, 3))
+    tracking_positions = moving_average_rows(root_positions, smoothing_window)
 
     roll_noise = generate_sin_noise(roll_mu/n_frames, roll_std, roll_signals, n_frames, rng)
     roll =  roll_factor * (roll_noise-1/2)
@@ -157,7 +161,7 @@ def get_path_endpoints(start_angle: float,
                        dist: float) -> Tuple[npt.NDArray[np.float64]]:
     start = bound_center - np.array([bound_r + dist, 0])
     path_angle = math.atan(bound_r/(dist + 0.0001))
-    end = 2*dist*np.array([math.cos(path_angle), math.sin(path_angle)])
+    end = 2*dist*np.array([math.cos(path_angle), math.sin(path_angle)]) + start
     
     theta = np.radians(start_angle)
     

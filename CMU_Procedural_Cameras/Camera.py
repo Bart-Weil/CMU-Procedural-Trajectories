@@ -52,10 +52,9 @@ class Camera:
             (projected_points[:, 1] < 0) | (projected_points[:, 1] >= self.screen_h)
         )
 
-        occluded_mask = invalid_depth_mask | out_of_frame_mask
-
         occluded_flag = np.zeros((projected_points.shape[0], 1))
-        occluded_flag[occluded_mask] = 1
+        occluded_flag[out_of_frame_mask] = 1
+        occluded_flag[invalid_depth_mask] = 2
 
         return np.hstack((projected_points, occluded_flag))
 

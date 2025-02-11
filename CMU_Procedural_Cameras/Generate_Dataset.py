@@ -28,14 +28,14 @@ def generate_data_for_sequence(filename_prefix, joints_file, motions_file):
         cam_seq = cam_seqs[path]
         initial_opt_center = cam_seq[0].opt_center
         scene_cam_seq = {"opt_center": np.array([cam.opt_center - initial_opt_center for cam in cam_seq]),
-                         "cam_look_at": np.array([cam.cam_look_at for cam in cam_seq]),
+                         "cam_look_at": np.array([cam.cam_look_at - initial_opt_center for cam in cam_seq]),
                          "cam_up": np.array([cam.cam_up for cam in cam_seq]),
                          "cam_intrinsic": np.array([cam.cam_intrinsic for cam in cam_seq])
                         }
 
         scene_2d_pose = np.array([cam_seq[i].project_points(poses[i]) for i in range(len(cam_seq))])
 
-        scene_3d_pose = np.array([poses[i] - cam_seq[i].opt_center for i in range(len(cam_seq))])
+        scene_3d_pose = np.array([poses[i] - initial_opt_center for i in range(len(cam_seq))])
 
         scene = {"cam_sequence": scene_cam_seq, "pose_2d": scene_2d_pose, "pose_3d": scene_3d_pose}
 
@@ -82,21 +82,30 @@ def generate_dataset():
             prefix = os.path.join(output_dir, subject + "_" + f"{i+1}")
             generate_data_for_sequence(prefix, joints_file, motion_file)
 
-def render_scene(scene_path, framerate=60, filename_prefix=""):
-    step = 120 // framerate
-
+def load_scene(scene_path):
     scene_file = open(scene_path, "rb")
     scene_data = pickle.load(scene_file)
     scene_file.close()
     
-    scene_2d_poses = scene_data["pose_2d"][::step]
+    scene_2d_poses = scene_data["pose_2d"]
+    scene_3d_poses = scene_data["pose_3d"]
 
     scene_cams = scene_data["cam_sequence"]
 
     cams = [Camera(scene_cams["opt_center"][i], 
                    scene_cams["cam_look_at"][i],
                    scene_cams["cam_up"][i],
-                   scene_cams["cam_intrinsic"][i]) for i in range(0, len(scene_cams["opt_center"]), step)]
+                   scene_cams["cam_intrinsic"][i]) for i in range(len(scene_cams["opt_center"]))]
+
+    return {"loaded_cams": cams, "loaded_pose_2d": scene_2d_poses, "loaded_pose_3d": scene_3d_poses}
+
+def render_scene(scene_path, framerate=60, filename_prefix=""):
+    step = 120 // framerate
+
+    scene = load_scene(scene_path)
+
+    scene_2d_poses = scene["loaded_pose_2d"][::step]
+    cams = scene["loaded_cams"][::step]
 
     n_frames = len(scene_2d_poses)
     for i in tqdm(range(n_frames)):
@@ -113,6 +122,9 @@ def render_scene(scene_path, framerate=60, filename_prefix=""):
         plt.close()
 
 if __name__ == "__main__":
-    # generate_dataset()
-    render_scene("../Datasets/CMU_Camera/subjects/01/01_2_1.pkl", framerate=15, filename_prefix="Plots/test_projection")
-
+    generate_dataset()
+    # render_scene("../Datasets/CMU_Camera/subjects/01/01_3_5.pkl", framerate=15, filename_prefix="Plots/test_projection")
+    # scene = load_scene("../Datasets/CMU_Camera/subjects/01/01_1_4.pkl")
+    # plot_cam_trajectory(scene["loaded_pose_3d"], scene["loaded_cams"])
+    # plot_human_and_cam_pose(scene["loaded_pose_3d"][-1], scene["loaded_cams"][-1])
+    # plt.show()
