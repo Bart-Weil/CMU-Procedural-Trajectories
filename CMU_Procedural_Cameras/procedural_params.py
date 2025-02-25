@@ -1,3 +1,6 @@
+# Average CMU sequence length - held as constant to save compution but easily found
+avg_seq_length = 3289.875
+
 # -- Coarse Grained Procedural Parameters
 
 # Probability of generating a faster camera motion over a longer distance
@@ -5,10 +8,10 @@ p_fast_shot = 0.15
 
 # Span of camera path
 path_length_mu = 3
-path_length_std = 2
+path_length_std = 4
 
 # Fast shot path length increase
-fast_dist_mu = 4
+fast_dist_mu = 2
 fast_dist_std = 2
 
 # Probability of generating an overhead camera motion
@@ -30,18 +33,18 @@ h_range_mu = 0.75
 h_range_std = 0.6
 
 # Rotation factor
-rot_factor_mu = 0.6
-rot_factor_std = 0.2
+rot_factor_mu = 0.15
+rot_factor_std = 0.05
 
 # Lateral movement factor
 lat_factor_mu = 3.5
 lat_factor_std = 3
 
 # Minimum safe distance from subject
-safe_dist = 1.2
+safe_dist = 1.4
 
 # Minimum distance from subject
-min_dist_mu = 5
+min_dist_mu = 1.2
 min_dist_std = 5
 
 # -- Camera Intrinsics
@@ -60,7 +63,7 @@ o_y = 360
 roll_factor = 0.005
 zoom_factor = 0.05
 # Extent to which we deviate from linear progress through camera path
-disp_factor = 0.7
+disp_factor = 0.5
 # Smooths tracking of root joint
 smoothing_window = 101
 

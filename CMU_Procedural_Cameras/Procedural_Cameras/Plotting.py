@@ -7,13 +7,14 @@ from mpl_toolkits.mplot3d import Axes3D  # This import registers the 3D projecti
 
 from typing import List
 
-from Camera import *
-from Procedural_Cameras import *
-from AMCParser.amc_parser import *
+from Procedural_Cameras.Camera import *
+from Procedural_Cameras.Procedural_Cameras import *
+from Procedural_Cameras.Pose_Implementations.Pose_Impl import *
+from Procedural_Cameras.Generate_Dataset import load_scene
 
 from tqdm import tqdm
 
-def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], filename_prefix="", framerate=120):
+def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], filename_prefix='', framerate=120):
     step = 120 // framerate
 
     # Plot Floor, offset by (x, y) of root joint of first pose in sequence
@@ -48,7 +49,7 @@ def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], fi
 
         plot_projected_scene(projected_pose, projected_floor_points, cams[frame].screen_w, cams[frame].screen_h, fig, ax)
 
-        filename = filename_prefix + (f"%0{len(str(n_frames))}d" % i) + ".png"
+        filename = filename_prefix + (f'%0{len(str(n_frames))}d' % i) + '.png'
         plt.savefig(filename)
         plt.close()
 
@@ -61,11 +62,12 @@ def is_quad_visible(quad, screen_w: int, screen_h: int):
     )
 
 def plot_projected_scene(projected_pose: npt.NDArray[np.float64],
-                        projected_floor_grid: npt.NDArray[np.float64],
-                        screen_w: int, screen_h: int,
-                        fig, ax):
-    pose_2D = CMU_Pose(projected_pose)
-    pose_2D.plot_2D(fig, ax)
+                         projected_floor_grid: npt.NDArray[np.float64],
+                         pose_impl: Pose_Impl,
+                         screen_w: int, screen_h: int,
+                         fig, ax):
+    pose_impl.set_joint_locs(projected_pose)
+    pose_impl.plot_2D(fig, ax)
     
     # Plot row-wise points
     for x in range(projected_floor_grid.shape[1] - 1):
@@ -80,9 +82,11 @@ def plot_projected_scene(projected_pose: npt.NDArray[np.float64],
             if is_quad_visible(quad, screen_w, screen_h):
                 ax.fill(*zip(*quad), color='gray', edgecolor='white')
 
-def plot_projected_pose(projected_pose: npt.NDArray[np.float64], fig, ax):
-    pose_2D = CMU_Pose(projected_pose)
-    pose_2D.plot_2D(fig, ax)
+def plot_projected_pose(projected_pose: npt.NDArray[np.float64],
+                        pose_impl: Pose_Impl,
+                        fig, ax):
+    pose_impl.set_joint_locs(projected_pose)
+    pose_impl.plot_2D(fig, ax)
 
 def plot_cam_trajectory(poses: npt.NDArray[np.float64], cams: List[Camera]):
     fig = plt.figure()
@@ -111,15 +115,15 @@ def plot_cam_trajectory(poses: npt.NDArray[np.float64], cams: List[Camera]):
     ax.set_zlabel('Z (m)')
     ax.set_title('Camera Location and Camera Look At over time')
 
-def plot_human_and_cam_pose(pose: npt.NDArray[np.float64], cam: Camera):
+def plot_human_and_cam_pose(pose: npt.NDArray[np.float64], pose_impl: Pose_Impl, cam: Camera):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.set_xlim(-10, 10)
     ax.set_ylim(-10, 10)
     ax.set_zlim(-10, 10)
 
-    pose_3D = CMU_Pose(pose)
-    pose_3D.plot_3D(fig, ax)
+    pose_impl.set_joint_locs(pose)
+    pose_impl.plot_3D(fig, ax)
 
     cam.plot(fig, ax)
     
@@ -127,3 +131,25 @@ def plot_human_and_cam_pose(pose: npt.NDArray[np.float64], cam: Camera):
     ax.set_ylabel('Y (m)')
     ax.set_zlabel('Z (m)')
     ax.set_title('Human and Camera Pose')
+
+def render_scene(scene_path, pose_impl: Pose_Impl, framerate=60, filename_prefix=''):
+    step = 120 // framerate
+
+    scene = load_scene(scene_path)
+
+    scene_2d_poses = scene['loaded_pose_2d'][::step]
+    cams = scene['loaded_cams'][::step]
+
+    n_frames = len(scene_2d_poses)
+    for i in tqdm(range(n_frames)):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        ax.set_xlim(0, cams[i].screen_w)
+        ax.set_ylim(0, cams[i].screen_h)
+
+        plot_projected_pose(scene_2d_poses[i], pose_impl, fig, ax)
+
+        filename = filename_prefix + (f'%0{len(str(n_frames))}d' % i) + '.png'
+        plt.savefig(filename)
+        plt.close()

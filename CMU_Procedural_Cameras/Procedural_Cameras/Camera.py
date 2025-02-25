@@ -34,14 +34,12 @@ class Camera:
         R = np.vstack([self.cam_x, self.cam_y, self.cam_z]) 
         t = -R @ opt_center
         
-        cam_ext = np.hstack([R, t.reshape(3, 1)])
+        self.cam_ext = np.hstack([R, t.reshape(3, 1)])
         
-        self.cam_mat = cam_intrinsic @ cam_ext
-
     # Project row-wise array of points with camera
     def project_points(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         points_hom = np.hstack([points, np.ones((points.shape[0], 1))])
-        projected_hom = points_hom @ self.cam_mat.T
+        projected_hom = points_hom @ (self.cam_intrinsic @ self.cam_ext).T
         
         invalid_depth_mask = projected_hom[:, 2] <= 0
 
