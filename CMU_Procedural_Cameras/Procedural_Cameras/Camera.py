@@ -35,6 +35,52 @@ class Camera:
         t = -R @ opt_center
         
         self.cam_ext = np.hstack([R, t.reshape(3, 1)])
+
+    def lookat_to_quaternion(self):
+        look_at = self.cam_look_at - self.opt_center
+        up = self.cam_up
+        # Normalize the forward vector (look-at)
+        F = normalize(np.array(look_at))
+        
+        # Compute the right vector
+        R = normalize(np.cross(up, F))
+        
+        # Compute the orthonormal up vector
+        U_prime = np.cross(F, R)
+        
+        # Build the rotation matrix (3x3)
+        rot_matrix = np.array([R, U_prime, F]).T  # Columns are R, U_prime, F
+
+        # Compute trace of the matrix
+        tr = np.trace(rot_matrix)
+        
+        if tr > 0:
+            S = np.sqrt(tr + 1.0) * 2  # S = 4 * qw
+            qw = 0.25 * S
+            qx = (rot_matrix[2, 1] - rot_matrix[1, 2]) / S
+            qy = (rot_matrix[0, 2] - rot_matrix[2, 0]) / S
+            qz = (rot_matrix[1, 0] - rot_matrix[0, 1]) / S
+        elif (rot_matrix[0, 0] > rot_matrix[1, 1]) and (rot_matrix[0, 0] > rot_matrix[2, 2]):
+            S = np.sqrt(1.0 + rot_matrix[0, 0] - rot_matrix[1, 1] - rot_matrix[2, 2]) * 2  # S = 4 * qx
+            qw = (rot_matrix[2, 1] - rot_matrix[1, 2]) / S
+            qx = 0.25 * S
+            qy = (rot_matrix[0, 1] + rot_matrix[1, 0]) / S
+            qz = (rot_matrix[0, 2] + rot_matrix[2, 0]) / S
+        elif rot_matrix[1, 1] > rot_matrix[2, 2]:
+            S = np.sqrt(1.0 + rot_matrix[1, 1] - rot_matrix[0, 0] - rot_matrix[2, 2]) * 2  # S = 4 * qy
+            qw = (rot_matrix[0, 2] - rot_matrix[2, 0]) / S
+            qx = (rot_matrix[0, 1] + rot_matrix[1, 0]) / S
+            qy = 0.25 * S
+            qz = (rot_matrix[1, 2] + rot_matrix[2, 1]) / S
+        else:
+            S = np.sqrt(1.0 + rot_matrix[2, 2] - rot_matrix[0, 0] - rot_matrix[1, 1]) * 2  # S = 4 * qz
+            qw = (rot_matrix[1, 0] - rot_matrix[0, 1]) / S
+            qx = (rot_matrix[0, 2] + rot_matrix[2, 0]) / S
+            qy = (rot_matrix[1, 2] + rot_matrix[2, 1]) / S
+            qz = 0.25 * S
+
+        # Return the quaternion as (x, y, z, w)
+        return np.array([qx, qy, qz, qw])
         
     # Project row-wise array of points with camera
     def project_points(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -87,3 +133,8 @@ class Camera:
 
         ax.scatter(self.cam_look_at[0], self.cam_look_at[1], self.cam_look_at[2], c='g', marker='o')
 
+def normalize(v):
+    norm = np.linalg.norm(v)
+    if norm == 0:
+        return v
+    return v / norm

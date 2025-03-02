@@ -43,10 +43,13 @@ class H36M_Pose(CMU_Pose):
     }
 
     def set_joints(self, cmu_joints):
-        self.head_offset_factor = 0.5*self.m_conversion*cmu_joints['head'].length
+        self.head_offset_factor = 0.65*self.m_conversion*cmu_joints['head'].length
 
         av_shoulder_length = (cmu_joints['lclavicle'].length + cmu_joints['rclavicle'].length)/2
-        self.shoulder_offset_factor = 0.25*self.m_conversion*av_shoulder_length
+        self.shoulder_offset_factor = 0.1*self.m_conversion*av_shoulder_length
+
+        av_hip_length = (cmu_joints['lhipjoint'].length + cmu_joints['rhipjoint'].length)/2
+        self.hip_offset_factor = 0.15*self.m_conversion*av_hip_length
 
     def set_pose(self, root_joint: Joint):
         self.cmu_pose = root_joint.to_dict()
@@ -74,27 +77,34 @@ class H36M_Pose(CMU_Pose):
         l_shoulder = (self.cmu_pose['lclavicle'].matrix @ self.cmu_pose['lclavicle'].direction)[[2, 0, 1]]
         r_shoulder = (self.cmu_pose['rclavicle'].matrix @ self.cmu_pose['rclavicle'].direction)[[2, 0, 1]]
 
-        l_offset = np.squeeze(self.shoulder_offset_factor*l_shoulder)
-        r_offset = np.squeeze(self.shoulder_offset_factor*r_shoulder)
+        l_shoulder_offset = np.squeeze(self.shoulder_offset_factor*l_shoulder)
+        r_shoulder_offset = np.squeeze(self.shoulder_offset_factor*r_shoulder)
+
+        # Obtaining hip offset
+        l_hip = (self.cmu_pose['lclavicle'].matrix @ self.cmu_pose['lclavicle'].direction)[[2, 0, 1]]
+        r_hip = (self.cmu_pose['rclavicle'].matrix @ self.cmu_pose['rclavicle'].direction)[[2, 0, 1]]
+
+        l_hip_offset = np.squeeze(self.hip_offset_factor*l_shoulder)
+        r_hip_offset = np.squeeze(self.hip_offset_factor*r_shoulder)
 
         self.joint_locs = {
-            'Pelvis': (cmu_joints['lhipjoint']+cmu_joints['rhipjoint'])/2,
-            'RHip': cmu_joints['rhipjoint'],
-            'RKnee': cmu_joints['rfemur'],
-            'RAnkle': cmu_joints['rfoot'],
-            'LHip': cmu_joints['lhipjoint'],
-            'LKnee': cmu_joints['lfemur'],
-            'LAnkle': cmu_joints['lfoot'],
-            'Spine1': (cmu_joints['lowerback']+cmu_joints['upperback'])/2,
+            'Pelvis': (cmu_joints['lhipjoint'] + cmu_joints['rhipjoint'])/2,
+            'RHip': cmu_joints['rhipjoint'] + r_hip_offset,
+            'RKnee': cmu_joints['rfemur'] + r_hip_offset,
+            'RAnkle': cmu_joints['rfoot'] + r_hip_offset,
+            'LHip': cmu_joints['lhipjoint'] + l_hip_offset,
+            'LKnee': cmu_joints['lfemur'] + l_hip_offset,
+            'LAnkle': cmu_joints['lfoot'] + l_hip_offset,
+            'Spine1': (cmu_joints['lowerback'] + cmu_joints['upperback'])/2,
             'Neck': cmu_joints['lowerneck'],
             'Head': cmu_joints['upperneck'] + self.head_offset_factor*pose_look,
             'Site': cmu_joints['head'],
-            'LShoulder': cmu_joints['lclavicle'] - l_offset,
-            'LElbow': cmu_joints['lhumerus'] - l_offset,
-            'LWrist': cmu_joints['lwrist'] - l_offset,
-            'RShoulder': cmu_joints['rclavicle'] - r_offset,
-            'RElbow': cmu_joints['rhumerus'] - r_offset,
-            'RWrist': cmu_joints['rwrist'] - r_offset
+            'LShoulder': cmu_joints['lclavicle'] - l_shoulder_offset,
+            'LElbow': cmu_joints['lhumerus'] - l_shoulder_offset,
+            'LWrist': cmu_joints['lwrist'] - l_shoulder_offset,
+            'RShoulder': cmu_joints['rclavicle'] - r_shoulder_offset,
+            'RElbow': cmu_joints['rhumerus'] - r_shoulder_offset,
+            'RWrist': cmu_joints['rwrist'] - r_shoulder_offset
         }
 
     def get_joint_locs(self):

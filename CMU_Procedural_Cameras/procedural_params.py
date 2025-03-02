@@ -15,7 +15,7 @@ fast_dist_mu = 2
 fast_dist_std = 2
 
 # Probability of generating an overhead camera motion
-p_overhead_shot = 0.2
+p_overhead_shot = 0
 
 # Overhead path height increase
 overhead_h_mu = 0.8

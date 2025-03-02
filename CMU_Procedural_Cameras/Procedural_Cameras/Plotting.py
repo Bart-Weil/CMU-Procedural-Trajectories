@@ -14,8 +14,10 @@ from Procedural_Cameras.Generate_Dataset import load_scene
 
 from tqdm import tqdm
 
-def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], filename_prefix='', framerate=120):
-    step = 120 // framerate
+CMU_FPS = 120
+
+def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], filename_prefix='', framerate=CMU_FPS):
+    step = CMU_FPS // framerate
 
     # Plot Floor, offset by (x, y) of root joint of first pose in sequence
     floor_x_size = 20
@@ -132,13 +134,14 @@ def plot_human_and_cam_pose(pose: npt.NDArray[np.float64], pose_impl: Pose_Impl,
     ax.set_zlabel('Z (m)')
     ax.set_title('Human and Camera Pose')
 
+
 def render_scene(scene_path, pose_impl: Pose_Impl, framerate=60, filename_prefix=''):
-    step = 120 // framerate
+    step = CMU_FPS // framerate
 
     scene = load_scene(scene_path)
 
-    scene_2d_poses = scene['loaded_pose_2d'][::step]
-    cams = scene['loaded_cams'][::step]
+    scene_2d_poses = scene['pose_2d'][::step]
+    cams = scene['cam_obj_sequence'][::step]
 
     n_frames = len(scene_2d_poses)
     for i in tqdm(range(n_frames)):
