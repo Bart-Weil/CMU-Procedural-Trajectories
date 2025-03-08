@@ -4,4 +4,4 @@ Intended for 2d-to-3d pose lifting applications
 
 Example Scene (01_1):
 
-![](media/01_1_1_floor.gif)
+![Render of CMU mocap procedural camera frames](media/01_1_1_floor.gif)
