@@ -1,8 +1,6 @@
 import numpy as np
 import numpy.typing as npt
 
-import scipy.stats as stats
-
 import functools
 import math
 from typing import List, Tuple

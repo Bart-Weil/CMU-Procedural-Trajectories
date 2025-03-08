@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 CMU_FPS = 120
 
-def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], filename_prefix='', framerate=CMU_FPS):
+def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], pose_impl: PoseImpl, filename_prefix='', framerate=CMU_FPS):
     step = CMU_FPS // framerate
 
     # Plot Floor, offset by (x, y) of root joint of first pose in sequence
@@ -41,7 +41,8 @@ def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], fi
     for i in tqdm(range(n_frames)):
         frame = step*i
         projected_pose = cams[frame].project_points(poses[frame])
-        projected_floor_points = cams[frame].project_points(floor_points).reshape((cells_x, cells_y, 2))[:, :2] # Remove occlusion flag
+        projected_floor_points = cams[frame].project_points(floor_points)[:, :2] # Remove occlusion flag
+        projected_floor_points = projected_floor_points.reshape((cells_x, cells_y, 2))
 
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -49,7 +50,7 @@ def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], fi
         ax.set_xlim(0, cams[frame].screen_w)
         ax.set_ylim(0, cams[frame].screen_h)
 
-        plot_projected_scene(projected_pose, projected_floor_points, cams[frame].screen_w, cams[frame].screen_h, fig, ax)
+        plot_projected_scene(projected_pose, projected_floor_points, pose_impl, cams[frame].screen_w, cams[frame].screen_h, fig, ax)
 
         filename = filename_prefix + (f'%0{len(str(n_frames))}d' % i) + '.png'
         plt.savefig(filename)

@@ -5,8 +5,6 @@ import math
 import numpy as np
 import numpy.typing as npt
 
-import scipy.stats as stats
-
 from typing import List, Tuple
 
 class Camera:
