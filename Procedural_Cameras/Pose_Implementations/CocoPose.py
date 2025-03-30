@@ -41,10 +41,10 @@ class CocoPose(CMU_Pose):
     def set_joints(self, cmu_joints):
         self.nose_fwd_factor = 0.5*self.m_conversion*cmu_joints['head'].length
         
-        self.ear_width_factor = 0.6*self.m_conversion*cmu_joints['head'].length
+        self.ear_widtvert_factor = 0.6*self.m_conversion*cmu_joints['head'].length
         
         self.eye_fwd_factor = 0.3*self.m_conversion*cmu_joints['head'].length
-        self.eye_width_factor = 0.3*self.m_conversion*cmu_joints['head'].length
+        self.eye_widtvert_factor = 0.3*self.m_conversion*cmu_joints['head'].length
         self.eye_up_factor = 0.4*self.m_conversion*cmu_joints['head'].length
 
         self.head_up_factor = 0.2*self.m_conversion*cmu_joints['head'].length
@@ -78,12 +78,12 @@ class CocoPose(CMU_Pose):
         nose_offset = (head_matrix@(self.nose_fwd_factor*head_fwd))[[2, 0, 1]]
         
         # Ear offsets
-        l_ear_offset = self.ear_width_factor*(head_matrix@(-head_right))[[2, 0, 1]]
-        r_ear_offset = self.ear_width_factor*(head_matrix@head_right)[[2, 0, 1]]
+        l_ear_offset = self.ear_widtvert_factor*(head_matrix@(-head_right))[[2, 0, 1]]
+        r_ear_offset = self.ear_widtvert_factor*(head_matrix@head_right)[[2, 0, 1]]
 
         # Eye offsets
-        l_eye_dir = self.eye_fwd_factor*head_fwd - self.eye_width_factor*head_right + self.eye_up_factor*head_up
-        r_eye_dir = self.eye_fwd_factor*head_fwd + self.eye_width_factor*head_right + self.eye_up_factor*head_up
+        l_eye_dir = self.eye_fwd_factor*head_fwd - self.eye_widtvert_factor*head_right + self.eye_up_factor*head_up
+        r_eye_dir = self.eye_fwd_factor*head_fwd + self.eye_widtvert_factor*head_right + self.eye_up_factor*head_up
         l_eye_offset = (head_matrix@l_eye_dir)[[2, 0, 1]]
         r_eye_offset = (head_matrix@r_eye_dir)[[2, 0, 1]]
 

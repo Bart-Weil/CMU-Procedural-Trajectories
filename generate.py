@@ -15,9 +15,9 @@ if __name__ == "__main__":
     plot_human_and_cam_pose(scene["pose_3d_cam"][0], CocoPose.CocoPose(), scene['cam_obj_sequence'][0])
     
     # Plot scene with projected floor
-    plot_cam_(scene['pose_3d'], scene['cam_obj_sequence'], H36mPose.H36mPose(), 'Plots/output', 15)
+    plot_cam_frames(scene['pose_3d'], scene['cam_obj_sequence'], H36mPose.H36mPose(), 'Plots/output', 15)
 
     # Render camera frames
-    render_scene("../Datasets/CMU_Camera/subjects/01/01_4_5.pkl", CocoPose.CocoPose(), framerate=15, filename_prefix="Plots/test_projection")
+    render_scene("../Datasets/CMU_Camera/subjects/01/01_2_1.pkl", CocoPose.CocoPose(), framerate=15, filename_prefix="Plots/test_projection")
     
     plt.show()

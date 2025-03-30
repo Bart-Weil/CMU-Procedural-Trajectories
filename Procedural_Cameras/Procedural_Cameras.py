@@ -10,6 +10,21 @@ from scipy import stats
 from Procedural_Cameras.Camera import *
 from procedural_params import *
 
+from dataclasses import dataclass
+
+@dataclass
+class CamSeqConfig:
+    start_angle: float
+    path_length: float
+    base_rad_dist: float
+    base_vert: float
+    prog_factor: float
+    vert_factor: float
+    look_at_factor: float
+    rad_factor: float
+    roll_factor: float
+    zoom_factor: float
+
 # Generate camera trajectories
 def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
                       n_seqs: int,
@@ -20,98 +35,98 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
 
     cam_seqs = []
     n_frames = len(poses)
-    # Scale mean path length by avg sequence length to scale cam velocity for different seq lengths
-    k_velocity = n_frames/avg_seq_length
 
     for i in range(n_seqs):
-        fast_shot = rng.binomial(1, p=p_fast_shot)
-        
         path_length = max(rng.normal(loc=path_length_mu, scale=path_length_std), 0)
-        if fast_shot:
-            path_length += max(rng.normal(loc=fast_dist_mu, scale=fast_dist_std), 0)
+        path_length = path_length * n_frames/avg_seq_length # Account for varying sequence length
+        
+        # Base radial distance from subject
+        base_rad_dist = max(rng.normal(loc=base_rad_mu, scale=base_rad_std), safe_dist)
+        
+        # Base vertical distance (height of camera)
+        base_vert = max(rng.normal(loc=base_vertical_mu, scale=base_vertical_std), safe_vert)
 
-        path_length = path_length * k_velocity # Account for varying sequence length
+        vert_factor = max(rng.normal(loc=vert_factor_mu, scale=vert_factor_std), 0) if vert_noise else 0
 
-        # Height Generation
-        overhead_shot = rng.binomial(n=1, p=p_overhead_shot)
+        prog_factor = max(rng.normal(loc=prog_factor_mu, scale=prog_factor_std), 0) if prog_noise else 0
 
-        min_h = max(rng.normal(loc=min_h_mu, scale=min_h_sigma), safe_h)
+        look_at_factor = max(rng.normal(loc=look_at_factor_mu, scale=look_at_factor_std), 0) if look_at_noise else 0
 
-        if overhead_shot:
-            min_h += max(rng.normal(loc=overhead_h_mu, scale=overhead_h_std), 0)
+        rad_factor = max(rng.normal(loc=rad_factor_mu, scale=rad_factor_std), 0) if rad_noise else 0
 
-        h_range = max(rng.normal(loc=h_range_mu, scale=h_range_std), 0)
-        h_range = h_range * k_velocity
+        zoom_factor = max(rng.normal(loc=zoom_factor_mu, scale=zoom_factor_std), 0) if zoom_noise else 0
 
-        min_h = min_h
-        max_h = min_h+h_range
+        roll_factor = max(rng.normal(loc=roll_factor_mu, scale=roll_factor_std), 0) if roll_noise else 0
 
-        # Rotational
-        rot_factor = max(rng.normal(loc=rot_factor_mu, scale=rot_factor_std), 0)
+        seq_config = CamSeqConfig(
+            start_angle=start_angle,
+            path_length=path_length,
+            base_rad_dist=base_rad_dist,
+            base_vert=base_vert,
+            prog_factor=prog_factor,
+            vert_factor=vert_factor,
+            look_at_factor=look_at_factor,
+            rad_factor=rad_factor,
+            roll_factor=roll_factor,
+            zoom_factor=zoom_factor
+        )
 
-        # Lateral
-        lat_factor = max(rng.normal(loc=lat_factor_mu/avg_seq_length, scale=lat_factor_std), 0)
-
-        min_dist = max(rng.normal(loc=min_dist_mu, scale=min_dist_std), safe_dist)
-
-        cam_seqs.append(generate_cam_seq(poses, start_angle,
-                                         path_length, min_h,
-                                         max_h, rot_factor,
-                                         lat_factor, min_dist,
-                                         rng))
+        cam_seqs.append(generate_cam_seq(poses, seq_config, rng))
 
         start_angle += start_increment
 
     return cam_seqs
 
 # Procedurally Generate Camera Trajectories from a given starting point
-def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
-                     start_angle: float,
-                     path_length: float,
-                     min_h: float,
-                     max_h: float,
-                     rotational_factor: float,
-                     lateral_factor: float,
-                     min_dist: float,
-                     rng) -> List[Camera]:
+def generate_cam_seq(poses: List[npt.NDArray[np.float64]], seq_config: CamSeqConfig, rng) -> List[Camera]:
 
     assert(smoothing_window % 2 == 1)
 
     n_frames = len(poses)
 
-    bound_center, bound_r = get_bounding_sphere(poses, min_dist)
+    bound_center, bound_r = get_bounding_circle(poses, seq_config.base_rad_dist)
 
-    start, end = get_path_endpoints(start_angle, bound_center, bound_r, path_length)
+    start, end = get_path_endpoints(seq_config.start_angle, bound_center, bound_r, seq_config.path_length)
+
+    if rng.uniform() < 0.5:
+        start, end = end, start
 
     # Generate camera positions
-    linear_disp_noise = generate_sin_noise(disp_mu/avg_seq_length, disp_std, disp_signals, n_frames, rng)
-    linear_disp = disp_factor * linear_disp_noise + (1-disp_factor) * np.linspace(0, 1, n_frames)
-    path_points = start + (end - start)*linear_disp[:, np.newaxis]
+    progress_noise = generate_sin_noise(dist_mu,
+                                        dist_std, dist_signals, n_frames, rng)
+    path_progress = seq_config.prog_factor * progress_noise + np.linspace(0, 1, n_frames)
+    path_points = start + (end - start)*path_progress[:, np.newaxis]
 
-    lateral_disp = generate_sin_noise(lateral_mu/avg_seq_length, lateral_std, lateral_signals, n_frames, rng)
+    radial_dist = generate_sin_noise(radial_mu,
+                                     radial_std, radial_signals, n_frames, rng)
+    radial_dist *= seq_config.rad_factor
+
+    path_radial = (start+end)/2 - bound_center
+    path_radial = path_radial/np.linalg.norm(path_radial)
+
+    path_points_xy = path_points + (radial_dist[:, np.newaxis] * path_radial)
     
-    vertical_noise = generate_sin_noise(vertical_mu/avg_seq_length, vertical_std, vertical_signals, n_frames, rng)
-    vertical_disp = (max_h - min_h)*(vertical_noise-1/2) + (max_h + min_h)/2
+    vertical_noise = generate_sin_noise(vertical_mu,
+                                        vertical_std, vertical_signals, n_frames, rng)
+    vertical_noise = seq_config.vert_factor * (vertical_noise - 1/2)
+    vertical_dist = seq_config.base_vert + vertical_noise
 
-    path_lateral = (start+end)/2 - bound_center
-    path_lateral = path_lateral * lateral_factor/np.linalg.norm(path_lateral)
-
-    path_points_xy = path_points + (lateral_disp[:, np.newaxis] * path_lateral)
-
-    path_points = np.hstack((path_points_xy, vertical_disp[:, np.newaxis]))
+    path_points = np.hstack((path_points_xy, vertical_dist[:, np.newaxis]))
 
     # Generate camera orientations
     root_positions = np.array([pose[0, :] for pose in poses])
     tracking_positions = moving_average_rows(root_positions, smoothing_window)
 
-    roll_noise = generate_sin_noise(roll_mu/avg_seq_length, roll_std, roll_signals, n_frames, rng)
-    roll =  roll_factor * (roll_noise-1/2)
+    roll_noise = generate_sin_noise(roll_mu, roll_std, roll_signals, n_frames, rng)
+    roll = seq_config.roll_factor*2*np.pi*(roll_noise - 1/2)
 
-    tracking_noise_x = generate_sin_noise(tracking_mu/avg_seq_length, tracking_std, tracking_signals, n_frames, rng)
-    tracking_noise_y = generate_sin_noise(tracking_mu/avg_seq_length, tracking_std, tracking_signals, n_frames, rng)
-    tracking_noise_z = generate_sin_noise(tracking_mu/avg_seq_length, tracking_std, tracking_signals, n_frames, rng)
-
-    tracking_noise = rotational_factor * np.vstack((tracking_noise_x, tracking_noise_y, tracking_noise_z)).T
+    tracking_noise = seq_config.look_at_factor * np.vstack([
+    generate_sin_noise(tracking_mu / avg_seq_length,
+                       tracking_std / avg_seq_length,
+                       tracking_signals, n_frames, rng)
+    for _ in range(3)
+    ]).T
+    
     noisy_tracking_positions = tracking_positions + tracking_noise
 
     cam_opt_centers = list(path_points)
@@ -119,8 +134,8 @@ def generate_cam_seq(poses: List[npt.NDArray[np.float64]],
     cam_ups = [get_camera_up(cam_look_ats[i], cam_opt_centers[i], roll[i]) for i in range(n_frames)]
 
     # Generate camera intrinsics
-    zoom_noise = generate_sin_noise(zoom_mu/avg_seq_length, zoom_std, zoom_signals, n_frames, rng)
-    zoom = zoom_factor*(zoom_noise-1/2) + 1
+    zoom_noise = generate_sin_noise(zoom_mu, zoom_std, zoom_signals, n_frames, rng)
+    zoom = seq_config.zoom_factor*(zoom_noise-1/2) + 1
     cam_intrinsics = [get_cam_intrinsic(F_x, F_y, o_x, o_y, zoom[i]) for i in range(n_frames)]
 
     return [Camera(cam_opt_centers[i], cam_look_ats[i], cam_ups[i], cam_intrinsics[i]) for i in range(n_frames)]
@@ -132,11 +147,11 @@ def moving_average_rows(arr, window_size, mode='edge'):
     arr_padded = np.pad(arr, ((pad_width, pad_width), (0, 0)), mode=mode)
     return np.apply_along_axis(lambda row: np.convolve(row, kernel, mode='valid'), axis=0, arr=arr_padded)
 
-# Generate N linspaced samples of composed and shifted sin^2 signals of various frequencies, oscilating in [0, 1]
+# Generate N linspaced samples of composed and shifted sin^2 signals of various frequencies, oscirading in [0, 1]
 def generate_sin_noise(mu: float, sigma: float, n_signals: int, N: int, rng) -> npt.NDArray[np.float64]:        
     t = np.linspace(0, 1, N, endpoint=False)
     
-    frequencies = rng.normal(loc=mu, scale=sigma, size=n_signals)
+    frequencies = rng.normal(loc=mu/avg_seq_length, scale=sigma/avg_seq_length, size=n_signals)
     pdf_values = stats.norm.pdf(frequencies, mu, sigma)
     amplitudes = pdf_values / np.max(pdf_values)
     
@@ -170,7 +185,7 @@ def get_path_endpoints(start_angle: float,
     end_rot = R @ (end - bound_center) + bound_center
     return start_rot, end_rot
 
-def get_bounding_sphere(poses: List[npt.NDArray[np.float64]], min_dist: float) -> Tuple[npt.NDArray[np.float64], float]:
+def get_bounding_circle(poses: List[npt.NDArray[np.float64]], min_dist: float) -> Tuple[npt.NDArray[np.float64], float]:
     roots = np.array([pose[0, :] for pose in poses])
     x_min = roots[:, 0].min()
     x_max = roots[:, 0].max()
