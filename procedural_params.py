@@ -61,7 +61,7 @@ o_y = 360
 # -- Procedural Noise Amplitude
 # Camera roll and zoom
 roll_factor = 0.005
-zoom_factor = 0.05
+zoom_factor = 0.0
 # Extent to which we deviate from linear progress through camera path
 disp_factor = 0.5
 # Smooths tracking of root joint

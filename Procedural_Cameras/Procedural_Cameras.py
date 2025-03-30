@@ -5,6 +5,8 @@ import functools
 import math
 from typing import List, Tuple
 
+from scipy import stats
+
 from Procedural_Cameras.Camera import *
 from procedural_params import *
 
@@ -154,9 +156,10 @@ def get_path_endpoints(start_angle: float,
                        bound_center: npt.NDArray[np.float64],
                        bound_r: float,
                        dist: float) -> Tuple[npt.NDArray[np.float64]]:
-    start = bound_center - np.array([bound_r + dist, 0])
-    path_angle = math.atan(bound_r/(dist + 0.0001))
-    end = 2*dist*np.array([math.cos(path_angle), math.sin(path_angle)]) + start
+    dist_center = np.sqrt((dist/2)**2 + bound_r**2)
+    start = bound_center - np.array([dist_center, 0])
+    path_angle = math.atan(bound_r/(dist/2 + 0.0001))
+    end = dist*np.array([math.cos(path_angle), math.sin(path_angle)]) + start
     
     theta = np.radians(start_angle)
     
