@@ -11,15 +11,12 @@ from Procedural_Cameras.Camera import *
 from Procedural_Cameras.Procedural_Cameras import *
 from Procedural_Cameras.Pose_Implementations.PoseImpl import *
 
-import torch
-
-def generate_data_for_sequence(filename_prefix, joints_file, motions_file, pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, rng):
+def read_mocap(joints_file, motions_file, pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl):
     joints = parse_asf(joints_file)
     pose_impl_2d.set_joints(joints)
     pose_impl_3d.set_joints(joints)
 
     motions = parse_amc(motions_file)
-    n_paths = 5
 
     poses_2d = []
     poses_3d = []
@@ -32,46 +29,88 @@ def generate_data_for_sequence(filename_prefix, joints_file, motions_file, pose_
         poses_2d.append(pose_impl_2d.get_joint_locs())
         poses_3d.append(pose_impl_3d.get_joint_locs())
 
+    return poses_2d, poses_3d
+
+
+def pickle_scene(cam_seq, poses_2d, poses_3d, filename):
+    cam_param_seq = {
+        'opt_center': np.array([cam.opt_center for cam in cam_seq]),
+        'cam_look_at': np.array([cam.cam_look_at for cam in cam_seq]),
+        'cam_up': np.array([cam.cam_up for cam in cam_seq]),
+        'cam_extrinsic': np.array([cam.cam_ext for cam in cam_seq]),
+        'cam_intrinsic': np.array([cam.cam_intrinsic for cam in cam_seq])
+    }
+
+    scene_pose_2d = [cam_seq[i].project_points(poses_2d[i]) for i in range(len(cam_seq))]
+
+    scene_pose_3d = [poses_3d[i] for i in range(len(cam_seq))]
+
+    scene_pose_3d_cam = []
+    scene_pose_2d_cam = []
+    for i in range(len(cam_seq)):
+        cam_ext = cam_seq[i].cam_ext
+        
+        R = cam_ext[:, :3]
+        opt_center = cam_seq[i].opt_center
+
+        scene_pose_3d_cam.append((poses_3d[i] - opt_center)@R.T)
+
+        scene_pose_2d_cam.append((poses_2d[i] - opt_center)@R.T)
+
+    scene = {
+        'cam_sequence': cam_param_seq,
+        'pose_2d': np.array(scene_pose_2d),
+        'pose_2d_cam': np.array(scene_pose_2d_cam),
+        'pose_3d': np.array(scene_pose_3d),
+        'pose_3d_cam': np.array(scene_pose_3d_cam)
+    }
+
+    with open(filename, 'wb') as scene_pickle:
+        pickle.dump(scene, scene_pickle)
+
+
+def generate_benchmark_fom_mocap(filename_prefix,
+                                 joints_file,
+                                 motions_file,
+                                 pose_impl_2d: PoseImpl,
+                                 pose_impl_3d: PoseImpl,
+                                 rng):
+    n_paths = 10
+    
+    poses_2d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
+
+    cam_seqs = generate_benchmark_cam_seqs(poses_3d, n_paths, rng)
+
+    for path in range(n_paths):
+        cam_seq = cam_seqs[path]
+        filename = filename_prefix + (f'_%0{len(str(n_paths))}d' % (path+1)) + '.pkl'
+        pickle_scene(cam_seq, poses_2d, poses_3d, filename)
+
+
+def generate_from_mocap(filename_prefix,
+                        joints_file,
+                        motions_file,
+                        pose_impl_2d: PoseImpl,
+                        pose_impl_3d: PoseImpl,
+                        rng):
+    n_paths = 5
+
+    poses_2d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
+
     cam_seqs = generate_cam_seqs(poses_3d, n_paths, rng)
     
     for path in range(n_paths):
         cam_seq = cam_seqs[path]
-        cam_sequence = {
-            'opt_center': np.array([cam.opt_center for cam in cam_seq]),
-            'cam_look_at': np.array([cam.cam_look_at for cam in cam_seq]),
-            'cam_up': np.array([cam.cam_up for cam in cam_seq]),
-            'cam_extrinsic': np.array([cam.cam_ext for cam in cam_seq]),
-            'cam_intrinsic': np.array([cam.cam_intrinsic for cam in cam_seq])
-        }
+        filename = filename_prefix + (f'_%0{len(str(n_paths))}d' % (path+1)) + '.pkl'
+        pickle_scene(cam_seq, poses_2d, poses_3d, filename)
 
-        scene_pose_2d = [cam_seq[i].project_points(poses_2d[i]) for i in range(len(cam_seq))]
-
-        scene_pose_3d = [poses_3d[i] for i in range(len(cam_seq))]
-
-        scene_pose_3d_cam = []
-        scene_pose_2d_cam = []
-        for i in range(len(cam_seq)):
-            cam_ext = cam_seq[i].cam_ext
-            
-            R = cam_ext[:, :3]
-            opt_center = cam_seq[i].opt_center
-
-            scene_pose_3d_cam.append((poses_3d[i] - opt_center)@R.T)
-
-            scene_pose_2d_cam.append((poses_2d[i] - opt_center)@R.T)
-
-        scene = {
-            'cam_sequence': cam_sequence,
-            'pose_2d': np.array(scene_pose_2d),
-            'pose_2d_cam': np.array(scene_pose_2d_cam),
-            'pose_3d': np.array(scene_pose_3d),
-            'pose_3d_cam': np.array(scene_pose_3d_cam)
-        }
-
-        with open(filename_prefix + (f'_%0{len(str(n_paths))}d' % (path+1)) + '.pkl', 'wb') as scene_pickle:
-            pickle.dump(scene, scene_pickle)
-
-def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, seed=42):
+"""
+Generate a dataset of 2D and 3D poses from CMU motion capture data.
+pose_impl_2d: PoseImpl instance for 2D poses (model input)
+pose_impl_3d: PoseImpl instance for 3D poses (model GT)
+benchmark: If True, generates a simplified dataset for benchmarking purposes.
+"""
+def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, benchmark: bool=False, seed=42):
     CMU_Dir = '../Datasets/CMU'
     write_dataset_dir = '../Datasets/CMU_Camera'
     
@@ -111,7 +150,11 @@ def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, seed=42):
             os.makedirs(output_dir, exist_ok=True)
             
             prefix = os.path.join(output_dir, subject + '_' + f'{i+1}')
-            generate_data_for_sequence(prefix, joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
+            if not benchmark:
+                generate_from_mocap(prefix, joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
+            else:
+                generate_benchmark_fom_mocap(prefix + '_benchmark', joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
+
 
 def load_scene(scene_path):
     scene_file = open(scene_path, 'rb')

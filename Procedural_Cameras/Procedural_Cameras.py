@@ -1,7 +1,6 @@
 import numpy as np
 import numpy.typing as npt
 
-import functools
 import math
 from typing import List, Tuple
 
@@ -9,6 +8,7 @@ from scipy import stats
 
 from Procedural_Cameras.Camera import *
 from procedural_params import *
+from Procedural_Cameras.Constants import *
 
 from dataclasses import dataclass
 
@@ -24,6 +24,62 @@ class CamSeqConfig:
     rad_factor: float
     roll_factor: float
     zoom_factor: float
+
+# Rodrigues rotation matrix
+# R = I + sin(w)K + (1 - cos(w))(K^2)
+def rotation_about_normal(n, omega):
+    cos_w = np.cos(-omega)
+    sin_w = np.sin(-omega)
+
+    K = np.array([
+        [0, -n[2], n[1]],
+        [n[2], 0, -n[0]],
+        [-n[1], n[0], 0]
+    ])
+    
+    R = np.eye(3) + sin_w * K + (1 - cos_w) * (K @ K)
+    return R
+
+# Generage benchmark camera trajectories
+def generate_benchmark_cam_seqs(poses: List[npt.NDArray[np.float64]],
+                                n_seqs: int,
+                                rng) -> List[List[Camera]]:
+    
+    cam_seqs = []
+    
+    motion_frames = np.floor(motion_interval*CMU_FPS).astype(int)
+
+    for seq in range(n_seqs):
+        start_frame = rng.integers(low=0, high=(len(poses) - motion_frames))
+        end_frame = start_frame + motion_frames
+
+        theta = rng.uniform(low=0, high=2*np.pi)
+        bound_center, bound_r = get_bounding_circle(poses[start_frame:end_frame], 3.0)
+        tangent_point = bound_center + np.array([bound_r*math.cos(theta), bound_r*math.sin(theta)])
+        midpoint = np.hstack([tangent_point, np.array([1.5])]) # Approx avg camera height from H3.6M dataset
+        v = rng.normal(loc=0, scale=1, size=(3,))
+        v = max(0, rng.normal(loc=v_mu, scale=v_std))/np.linalg.norm(v)
+        start = midpoint - v*motion_interval
+        end = midpoint + v*motion_interval
+
+        cam_pos = np.linspace(start, end, num=motion_frames)
+
+        omega = max(0, rng.normal(loc=omega_mu, scale=omega_std))
+        
+        look_at = poses[(start_frame + end_frame)//2][0, :] # Look at root joint
+
+        thetas = np.linspace(-omega*motion_interval/2, omega*motion_interval/2, num=motion_frames)
+        Rs = np.array([rotation_about_normal(np.array([0, 0, 1]), theta) for theta in thetas])
+        
+        cam_look_ats = np.array([((look_at - cam_pos[i]) @ Rs[i]) + cam_pos[i]
+                                 for i in range(motion_frames)])
+        cam_ups = [get_camera_up(cam_look_ats[i], cam_pos[i], 0) for i in range(motion_frames)]
+
+        cam_seqs.append([Camera(cam_pos[i], cam_look_ats[i], cam_ups[i], 
+                                get_cam_intrinsic(F_x, F_y, o_x, o_y)) for i in range(motion_frames)])
+
+    return cam_seqs
+
 
 # Generate camera trajectories
 def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
@@ -187,13 +243,13 @@ def get_path_endpoints(start_angle: float,
 
 def get_bounding_circle(poses: List[npt.NDArray[np.float64]], min_dist: float) -> Tuple[npt.NDArray[np.float64], float]:
     roots = np.array([pose[0, :] for pose in poses])
-    x_min = roots[:, 0].min()
-    x_max = roots[:, 0].max()
-    y_min = roots[:, 1].min()
-    y_max = roots[:, 1].max()
 
-    bound_center = np.array([x_min + x_max, y_min + y_max])/2
-    bound_r = min_dist + max(x_max - x_min, y_max - y_min)/2
+    x_coords = roots[:, 0]
+    y_coords = roots[:, 1]
+
+    bound_center = np.array([x_coords.mean(), y_coords.mean()])
+    bound_r = min_dist + max(np.ptp(x_coords), np.ptp(y_coords)) / 2
+
     return bound_center, bound_r
     
 def get_camera_up(cam_look_at: npt.NDArray[np.float64], cam_pos: npt.NDArray[np.float64], roll: float) -> npt.NDArray[np.float64]:

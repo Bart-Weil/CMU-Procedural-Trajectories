@@ -14,8 +14,6 @@ from Procedural_Cameras.Generate_Dataset import load_scene
 
 from tqdm import tqdm
 
-CMU_FPS = 120
-
 def plot_cam_frames(poses: List[npt.NDArray[np.float64]], cams: List[Camera], pose_impl: PoseImpl, filename_prefix='', framerate=CMU_FPS):
     step = CMU_FPS // framerate
 
