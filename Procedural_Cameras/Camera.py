@@ -8,34 +8,34 @@ import numpy.typing as npt
 from typing import List, Tuple
 
 class Camera:
-    def __init__(self, opt_center: npt.NDArray[np.float64],
-                 cam_look_at: npt.NDArray[np.float64],
-                 cam_up: npt.NDArray[np.float64],
+    def __init__(self, 
+                 cam_extrinsic: npt.NDArray[np.float64],
                  cam_intrinsic: npt.NDArray[np.float64]):
-        
-        self.opt_center = opt_center
-        self.cam_look_at = cam_look_at
-        self.cam_up = cam_up
+
+        self.cam_ext = cam_extrinsic
         self.cam_intrinsic = cam_intrinsic
 
-        self.cam_z = cam_look_at - opt_center
-        self.cam_z = self.cam_z / np.linalg.norm(self.cam_z)
-        
-        self.cam_x = np.cross(self.cam_z, cam_up)
-        self.cam_x = self.cam_x / np.linalg.norm(self.cam_x)
-        
-        self.cam_y = np.cross(self.cam_x, self.cam_z)
-        R = np.vstack([self.cam_x, self.cam_y, self.cam_z])
+        # Extract rotation matrix and translation vector
+        R = cam_extrinsic[:, :3]
+        t = cam_extrinsic[:, 3]
 
+        self.cam_x = R[0, :]
+        self.cam_y = R[1, :]
+        self.cam_z = R[2, :]
+
+        # Compute optical center from extrinsic matrix
+        self.opt_center = -R.T @ t
+
+        # Reconstruct "look_at" point and up vector for compatibility (optional)
+        self.cam_look_at = self.opt_center + self.cam_z
+        self.cam_up = self.cam_y
+
+        # Euler angles (negated to match original logic)
         euler = transforms3d.euler.mat2euler(R)
-        euler = (-euler[0], -euler[1], -euler[2])
+        self.euler = (-euler[0], -euler[1], -euler[2])
 
-        self.screen_w = 2*cam_intrinsic[0, 2]
-        self.screen_h = 2*cam_intrinsic[1, 2]
-
-        t = -R @ opt_center
-        
-        self.cam_ext = np.hstack([R, t.reshape(3, 1)])
+        self.screen_w = 2 * cam_intrinsic[0, 2]
+        self.screen_h = 2 * cam_intrinsic[1, 2]
 
     # Project row-wise array of points with camera
     def project_points(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
