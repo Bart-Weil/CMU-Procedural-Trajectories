@@ -18,7 +18,7 @@ def read_mocap(joints_file, motions_file, pose_impl_2d: PoseImpl, pose_impl_3d: 
 
     motions = parse_amc(motions_file)
 
-    poses_2d = []
+    proj_poses_3d = []
     poses_3d = []
 
     for i in range(len(motions)):
@@ -26,22 +26,19 @@ def read_mocap(joints_file, motions_file, pose_impl_2d: PoseImpl, pose_impl_3d: 
         pose_impl_2d.set_pose(joints['root'])
         pose_impl_3d.set_pose(joints['root'])
 
-        poses_2d.append(pose_impl_2d.get_joint_locs())
+        proj_poses_3d.append(pose_impl_2d.get_joint_locs())
         poses_3d.append(pose_impl_3d.get_joint_locs())
 
-    return poses_2d, poses_3d
+    return np.array(proj_poses_3d), np.array(poses_3d)
 
 
-def pickle_scene(cam_seq, poses_2d, poses_3d, filename):
+def pickle_scene(cam_seq, proj_poses_3d, poses_3d, filename):
     cam_param_seq = {
-        'opt_center': np.array([cam.opt_center for cam in cam_seq]),
-        'cam_look_at': np.array([cam.cam_look_at for cam in cam_seq]),
-        'cam_up': np.array([cam.cam_up for cam in cam_seq]),
         'cam_extrinsic': np.array([cam.cam_ext for cam in cam_seq]),
         'cam_intrinsic': np.array([cam.cam_intrinsic for cam in cam_seq])
     }
 
-    scene_pose_2d = [cam_seq[i].project_points(poses_2d[i]) for i in range(len(cam_seq))]
+    scene_pose_2d = [cam_seq[i].project_points(proj_poses_3d[i]) for i in range(len(cam_seq))]
 
     scene_pose_3d = [poses_3d[i] for i in range(len(cam_seq))]
 
@@ -55,13 +52,13 @@ def pickle_scene(cam_seq, poses_2d, poses_3d, filename):
 
         scene_pose_3d_cam.append((poses_3d[i] - opt_center)@R.T)
 
-        scene_pose_2d_cam.append((poses_2d[i] - opt_center)@R.T)
+        scene_pose_2d_cam.append((proj_poses_3d[i] - opt_center)@R.T)
 
     scene = {
         'cam_sequence': cam_param_seq,
-        'pose_2d': np.array(scene_pose_2d),
-        'pose_2d_cam': np.array(scene_pose_2d_cam),
-        'pose_3d': np.array(scene_pose_3d),
+        # 'pose_2d': np.array(scene_pose_2d),
+        # 'pose_2d_cam': np.array(scene_pose_2d_cam),
+        # 'pose_3d': np.array(scene_pose_3d),
         'pose_3d_cam': np.array(scene_pose_3d_cam)
     }
 
@@ -77,14 +74,14 @@ def generate_benchmark_fom_mocap(filename_prefix,
                                  rng):
     n_paths = 10
     
-    poses_2d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
+    proj_poses_3d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
 
     cam_seqs = generate_benchmark_cam_seqs(poses_3d, n_paths, rng)
 
     for path in range(n_paths):
         cam_seq = cam_seqs[path]
         filename = filename_prefix + (f'_%0{len(str(n_paths))}d' % (path+1)) + '.pkl'
-        pickle_scene(cam_seq, poses_2d, poses_3d, filename)
+        pickle_scene(cam_seq, proj_poses_3d, poses_3d, filename)
 
 
 def generate_from_mocap(filename_prefix,
@@ -93,16 +90,26 @@ def generate_from_mocap(filename_prefix,
                         pose_impl_2d: PoseImpl,
                         pose_impl_3d: PoseImpl,
                         rng):
-    n_paths = 5
+    n_paths = 15
 
-    poses_2d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
+    proj_poses_3d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
 
-    cam_seqs = generate_cam_seqs(poses_3d, n_paths, rng)
+    if (SEQ_LEN > proj_poses_3d.shape[0]):
+        return
+
+    cam_seqs, seq_starts, seq_ends = generate_cam_seqs(poses_3d, n_paths, rng)
     
     for path in range(n_paths):
         cam_seq = cam_seqs[path]
+        seq_start, seq_end = seq_starts[path], seq_ends[path]
+
+        frames = np.floor(np.arange(seq_start, seq_end, CMU_FPS/cam_fps)).astype('int32')
+        
+        proj_poses_3d_cam_frames = proj_poses_3d[frames, ...]
+        poses_3d_cam_frames = poses_3d[frames, ...]
+
         filename = filename_prefix + (f'_%0{len(str(n_paths))}d' % (path+1)) + '.pkl'
-        pickle_scene(cam_seq, poses_2d, poses_3d, filename)
+        pickle_scene(cam_seq, proj_poses_3d_cam_frames, poses_3d_cam_frames, filename)
 
 """
 Generate a dataset of 2D and 3D poses from CMU motion capture data.
@@ -151,6 +158,7 @@ def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, benchmark: 
             
             prefix = os.path.join(output_dir, subject + '_' + f'{i+1}')
             if not benchmark:
+
                 generate_from_mocap(prefix, joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
             else:
                 generate_benchmark_fom_mocap(prefix + '_benchmark', joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
@@ -167,9 +175,7 @@ def load_scene(scene_path):
 
     scene_cams = scene_data['cam_sequence']
 
-    cams = [Camera(scene_cams['opt_center'][i], 
-                   scene_cams['cam_look_at'][i],
-                   scene_cams['cam_up'][i],
-                   scene_cams['cam_intrinsic'][i]) for i in range(len(scene_cams['opt_center']))]
+    cams = [Camera(scene_cams['cam_extrinsic'][i],
+                   scene_cams['cam_intrinsic'][i]) for i in range(len(scene_cams['cam_extrinsic']))]
 
     return {'cam_obj_sequence': cams, 'pose_2d': pose_2ds, 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}

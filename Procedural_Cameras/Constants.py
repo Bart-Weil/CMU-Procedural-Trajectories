@@ -1,5 +1,8 @@
+from procedural_params import *
+
+import numpy as np
+
 # FPS of the CMU dataset
 CMU_FPS = 120
 
-# Average CMU sequence length - held as constant to save compution but easily found
-avg_seq_length = 3289.875
+SEQ_LEN = int(np.ceil(cam_fps * motion_interval))

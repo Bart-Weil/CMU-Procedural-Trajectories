@@ -1,7 +1,3 @@
-import functools
-import transforms3d
-import math
-
 import numpy as np
 import numpy.typing as npt
 
@@ -15,24 +11,18 @@ class Camera:
         self.cam_ext = cam_extrinsic
         self.cam_intrinsic = cam_intrinsic
 
-        # Extract rotation matrix and translation vector
-        R = cam_extrinsic[:, :3]
-        t = cam_extrinsic[:, 3]
+        # Extract transposed rotation matrix
 
-        self.cam_x = R[0, :]
-        self.cam_y = R[1, :]
-        self.cam_z = R[2, :]
+        self.cam_x = cam_extrinsic[0, :3]
+        self.cam_y = cam_extrinsic[1, :3]
+        self.cam_z = cam_extrinsic[2, :3]
 
         # Compute optical center from extrinsic matrix
-        self.opt_center = -R.T @ t
+        self.opt_center = -cam_extrinsic[:, :3].T @ cam_extrinsic[:, 3]
 
         # Reconstruct "look_at" point and up vector for compatibility (optional)
         self.cam_look_at = self.opt_center + self.cam_z
         self.cam_up = self.cam_y
-
-        # Euler angles (negated to match original logic)
-        euler = transforms3d.euler.mat2euler(R)
-        self.euler = (-euler[0], -euler[1], -euler[2])
 
         self.screen_w = 2 * cam_intrinsic[0, 2]
         self.screen_h = 2 * cam_intrinsic[1, 2]
