@@ -66,24 +66,6 @@ def pickle_scene(cam_seq, proj_poses_3d, poses_3d, filename):
         pickle.dump(scene, scene_pickle)
 
 
-def generate_benchmark_fom_mocap(filename_prefix,
-                                 joints_file,
-                                 motions_file,
-                                 pose_impl_2d: PoseImpl,
-                                 pose_impl_3d: PoseImpl,
-                                 rng):
-    n_paths = 10
-    
-    proj_poses_3d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
-
-    cam_seqs = generate_benchmark_cam_seqs(poses_3d, n_paths, rng)
-
-    for path in range(n_paths):
-        cam_seq = cam_seqs[path]
-        filename = filename_prefix + (f'_%0{len(str(n_paths))}d' % (path+1)) + '.pkl'
-        pickle_scene(cam_seq, proj_poses_3d, poses_3d, filename)
-
-
 def generate_from_mocap(filename_prefix,
                         joints_file,
                         motions_file,
@@ -117,7 +99,7 @@ pose_impl_2d: PoseImpl instance for 2D poses (model input)
 pose_impl_3d: PoseImpl instance for 3D poses (model GT)
 benchmark: If True, generates a simplified dataset for benchmarking purposes.
 """
-def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, benchmark: bool=False, seed=42):
+def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, seed=42):
     CMU_Dir = '../Datasets/CMU'
     write_dataset_dir = '../Datasets/CMU_Camera'
     
@@ -157,11 +139,8 @@ def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, benchmark: 
             os.makedirs(output_dir, exist_ok=True)
             
             prefix = os.path.join(output_dir, subject + '_' + f'{i+1}')
-            if not benchmark:
 
-                generate_from_mocap(prefix, joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
-            else:
-                generate_benchmark_fom_mocap(prefix + '_benchmark', joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
+            generate_from_mocap(prefix, joints_file, motion_file, pose_impl_2d, pose_impl_3d, rng)
 
 
 def load_scene(scene_path):

@@ -33,46 +33,6 @@ def rotation_about_normal(n, omega):
     R = np.eye(3) + sin_w * K + (1 - cos_w) * (K @ K)
     return R
 
-# Generage benchmark camera trajectories
-def generate_benchmark_cam_seqs(poses: List[npt.NDArray[np.float64]],
-                                n_seqs: int,
-                                rng) -> List[List[Camera]]:
-    
-    cam_seqs = []
-    
-    motion_frames = np.floor(benchmark_motion_interval*CMU_FPS).astype(int)
-
-    for seq in range(n_seqs):
-        start_frame = rng.integers(low=0, high=(len(poses) - motion_frames))
-        end_frame = start_frame + motion_frames
-
-        theta = rng.uniform(low=0, high=2*np.pi)
-        bound_center, bound_r = get_bounding_circle(poses[start_frame:end_frame], 3.0)
-        tangent_point = bound_center + np.array([bound_r*math.cos(theta), bound_r*math.sin(theta)])
-        midpoint = np.hstack([tangent_point, np.array([1.5])]) # Approx avg camera height from H3.6M dataset
-        v = rng.normal(loc=0, scale=1, size=(3,))
-        v = max(0, rng.normal(loc=v_mu, scale=v_std))/np.linalg.norm(v)
-        start = midpoint - v*benchmark_motion_interval/2
-        end = midpoint + v*benchmark_motion_interval/2
-
-        cam_pos = np.linspace(start, end, num=motion_frames)
-
-        omega = max(0, rng.normal(loc=omega_mu, scale=omega_std))
-        
-        look_at = poses[(start_frame + end_frame)//2][0, :] # Look at root joint
-
-        thetas = np.linspace(-omega*benchmark_motion_interval/2, omega*benchmark_motion_interval/2, num=motion_frames)
-        Rs = np.array([rotation_about_normal(np.array([0, 0, 1]), theta) for theta in thetas])
-        
-        cam_look_ats = np.array([((look_at - cam_pos[i]) @ Rs[i]) + cam_pos[i]
-                                 for i in range(motion_frames)])
-        cam_ups = [get_camera_up(cam_look_ats[i], cam_pos[i], 0) for i in range(motion_frames)]
-
-        cam_seqs.append([Camera(cam_pos[i], cam_look_ats[i], cam_ups[i], 
-                                get_cam_intrinsic(F_x, F_y, o_x, o_y)) for i in range(motion_frames)])
-
-    return cam_seqs
-
 
 # Generate camera trajectories
 def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
