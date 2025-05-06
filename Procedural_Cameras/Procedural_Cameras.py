@@ -118,7 +118,7 @@ def get_cam_poses(x_start, R_start, v, a, omega, alpha, motion_interval, CAM_FPS
 # ------------------------------------------------------------------
 def axis_angle_to_matrix(theta, tol=1e-12):
     """
-    theta : (3,) array-like, axis‑angle vector  (rad⋅axis)
+    theta : (3,) array-like, axis-angle vector  (rad⋅axis)
     return: (3,3) ndarray  rotation matrix
     """
     theta = np.asarray(theta, dtype=float)

@@ -34,31 +34,33 @@ def read_mocap(joints_file, motions_file, pose_impl_2d: PoseImpl, pose_impl_3d: 
 
 def pickle_scene(cam_seq, proj_poses_3d, poses_3d, filename):
     cam_param_seq = {
-        'cam_extrinsic': np.array([cam.cam_ext for cam in cam_seq]),
+        'cam_extrinsic': np.array([cam.cam_extrinsic for cam in cam_seq]),
         'cam_intrinsic': np.array([cam.cam_intrinsic for cam in cam_seq])
     }
 
-    scene_pose_2d = [cam_seq[i].project_points(proj_poses_3d[i]) for i in range(len(cam_seq))]
+    # scene_pose_2d = [cam_seq[i].project_points(proj_poses_3d[i]) for i in range(len(cam_seq))]
 
     scene_pose_3d = [poses_3d[i] for i in range(len(cam_seq))]
 
     scene_pose_3d_cam = []
     scene_pose_2d_cam = []
     for i in range(len(cam_seq)):
-        cam_ext = cam_seq[i].cam_ext
+        cam_ext = cam_seq[i].cam_extrinsic
         
-        R = cam_ext[:, :3]
-        opt_center = cam_seq[i].opt_center
+        pose_3d_hom = np.hstack((poses_3d[i],
+                                  np.ones((poses_3d[i].shape[0], 1))))
+        # proj_pose_3d_hom = np.hstack((proj_poses_3d[i],
+        #                                np.ones((proj_poses_3d[i].shape[0], 1))))
 
-        scene_pose_3d_cam.append((poses_3d[i] - opt_center)@R.T)
+        scene_pose_3d_cam.append((pose_3d_hom @ cam_ext.T)[:, :3])
 
-        scene_pose_2d_cam.append((proj_poses_3d[i] - opt_center)@R.T)
+        # scene_pose_2d_cam.append((proj_pose_3d_hom @ cam_ext.T)[:, :3])
 
     scene = {
         'cam_sequence': cam_param_seq,
         # 'pose_2d': np.array(scene_pose_2d),
         # 'pose_2d_cam': np.array(scene_pose_2d_cam),
-        # 'pose_3d': np.array(scene_pose_3d),
+        'pose_3d': np.array(scene_pose_3d),
         'pose_3d_cam': np.array(scene_pose_3d_cam)
     }
 
@@ -148,7 +150,7 @@ def load_scene(scene_path):
     scene_data = pickle.load(scene_file)
     scene_file.close()
     
-    pose_2ds = scene_data['pose_2d']
+    # pose_2ds = scene_data['pose_2d']
     pose_3ds = scene_data['pose_3d']
     scene_pose_3d_cam = scene_data['pose_3d_cam']
 
@@ -157,4 +159,5 @@ def load_scene(scene_path):
     cams = [Camera(scene_cams['cam_extrinsic'][i],
                    scene_cams['cam_intrinsic'][i]) for i in range(len(scene_cams['cam_extrinsic']))]
 
-    return {'cam_obj_sequence': cams, 'pose_2d': pose_2ds, 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}
+    # return {'cam_obj_sequence': cams, 'pose_2d': pose_2ds, 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}
+    return {'cam_obj_sequence': cams, 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}

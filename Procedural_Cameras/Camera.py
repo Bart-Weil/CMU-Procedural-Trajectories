@@ -8,7 +8,7 @@ class Camera:
                  cam_extrinsic: npt.NDArray[np.float64],
                  cam_intrinsic: npt.NDArray[np.float64]):
 
-        self.cam_ext = cam_extrinsic
+        self.cam_extrinsic = cam_extrinsic
         self.cam_intrinsic = cam_intrinsic
 
         # Extract transposed rotation matrix
@@ -30,7 +30,7 @@ class Camera:
     # Project row-wise array of points with camera
     def project_points(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         points_hom = np.hstack([points, np.ones((points.shape[0], 1))])
-        projected_hom = points_hom @ (self.cam_intrinsic @ self.cam_ext).T
+        projected_hom = points_hom @ (self.cam_intrinsic @ self.cam_extrinsic).T
         
         invalid_depth_mask = projected_hom[:, 2] <= 0
 
