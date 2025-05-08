@@ -17,25 +17,25 @@ Each of the below fields serve as a lower and upper bound for the
 uniform distribution of their parameter.
 """
 # Time interval for motion
-motion_interval = 2.1
+motion_interval = 3.0
 
 # Approx radial distance from the camera to the root joint
 r_min, r_max = 2.0, 5.0
 
 # Approx camera height
-h_min, h_max = 0.2, 2.2
+h_min, h_max = 1.0, 2.0
 
 # Cam velocity
-v_min, v_max = 0.0, 0.7
+v_min, v_max = 0.0, 0.25
 
 # Cam acceleration
-a_min, a_max = 0.0, 1.0
+a_min, a_max = 0.0, 0.6
 
 # Cam rotational velocity
-omega_min, omega_max = 0.0, 0.2
+omega_min, omega_max = 0.0, 0.05
 
 # Cam rotational acceleration
-alpha_min, alpha_max = 0.0, 0.4
+alpha_min, alpha_max = 0.0, 0.1
 
 """
 Parameters for generation of benchmark dataset

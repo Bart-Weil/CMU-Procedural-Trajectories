@@ -38,7 +38,10 @@ def rotation_about_normal(n, omega):
 def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
                       n_seqs: int,
                       rng) -> List[List[Camera]]:
-    starts = rng.integers(0, len(poses) - SEQ_LEN, size=n_seqs)
+    if (SEQ_LEN == poses.shape[0]):
+        starts = np.zeros(n_seqs, dtype=int)
+    else:
+        starts = rng.integers(0, len(poses) - SEQ_LEN, size=n_seqs)
     ends = starts + SEQ_LEN
 
     cam_seqs = []
@@ -47,8 +50,11 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
         start_frame = starts[i]
         end_frame = ends[i]
         pose_mid = poses[(start_frame + end_frame)//2]
-        cam_seq = gen_cam_seq(pose_mid, CAM_INTRINSIC, rng)
-        cam_seqs.append([Camera(cam_seq[i], CAM_INTRINSIC) for i in range(SEQ_LEN)])
+        cam_seq = get_cam_seq(pose_mid, CAM_INTRINSIC, rng)
+        cam_seq['start_frame'] = start_frame
+        cam_seq['end_frame'] = end_frame
+        cam_seq['cam_fps'] = cam_fps
+        cam_seqs.append(cam_seq)
 
     return cam_seqs, starts, ends
 
@@ -232,7 +238,7 @@ def get_cam_extrema(x_start, R_start,
             np.hstack([R_end.T, -R_end.T @ x_end.reshape((3, 1))])]
 
 
-def gen_cam_seq(pose, cam_intrinsics, rng):
+def get_cam_seq(pose, cam_intrinsics, rng):
 
     r = rng.uniform(r_min, r_max)
     h = rng.uniform(h_min, h_max)
@@ -295,4 +301,8 @@ def gen_cam_seq(pose, cam_intrinsics, rng):
         x_start, R_start, v_start, a, omega_start, alpha, motion_interval, cam_fps
     )
 
-    return cam_mats
+    return {'cameras': [Camera(cam_mat, CAM_INTRINSIC) for cam_mat in cam_mats],
+            'cam_velocity': v_mid,
+            'cam_acceleration': a,
+            'cam_angular_velocity': omega_mid,
+            'cam_angular_acceleration': alpha}

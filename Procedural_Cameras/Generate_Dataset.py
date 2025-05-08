@@ -32,20 +32,26 @@ def read_mocap(joints_file, motions_file, pose_impl_2d: PoseImpl, pose_impl_3d: 
     return np.array(proj_poses_3d), np.array(poses_3d)
 
 
-def pickle_scene(cam_seq, proj_poses_3d, poses_3d, filename):
-    cam_param_seq = {
-        'cam_extrinsic': np.array([cam.cam_extrinsic for cam in cam_seq]),
-        'cam_intrinsic': np.array([cam.cam_intrinsic for cam in cam_seq])
+def pickle_scene(cam_obj_seq, proj_poses_3d, poses_3d, filename):
+    cam_seq = {
+        'cam_extrinsic': np.array([cam.cam_extrinsic for cam in cam_obj_seq['cameras']]),
+        'cam_intrinsic': np.array([cam.cam_intrinsic for cam in cam_obj_seq['cameras']]),
+        'cam_velocity': cam_obj_seq['cam_velocity'],
+        'cam_acceleration': cam_obj_seq['cam_acceleration'],
+        'cam_angular_velocity': cam_obj_seq['cam_angular_velocity'],
+        'cam_angular_acceleration': cam_obj_seq['cam_angular_acceleration'],
+        'start_frame': cam_obj_seq['start_frame'],
+        'end_frame': cam_obj_seq['end_frame'],
     }
 
     # scene_pose_2d = [cam_seq[i].project_points(proj_poses_3d[i]) for i in range(len(cam_seq))]
 
-    scene_pose_3d = [poses_3d[i] for i in range(len(cam_seq))]
+    scene_pose_3d = [poses_3d[i] for i in range(len(cam_obj_seq['cameras']))]
 
     scene_pose_3d_cam = []
     scene_pose_2d_cam = []
-    for i in range(len(cam_seq)):
-        cam_ext = cam_seq[i].cam_extrinsic
+    for i in range(len(cam_obj_seq['cameras'])):
+        cam_ext = cam_seq['cam_extrinsic'][i]
         
         pose_3d_hom = np.hstack((poses_3d[i],
                                   np.ones((poses_3d[i].shape[0], 1))))
@@ -57,7 +63,7 @@ def pickle_scene(cam_seq, proj_poses_3d, poses_3d, filename):
         # scene_pose_2d_cam.append((proj_pose_3d_hom @ cam_ext.T)[:, :3])
 
     scene = {
-        'cam_sequence': cam_param_seq,
+        'cam_sequence': cam_seq,
         # 'pose_2d': np.array(scene_pose_2d),
         # 'pose_2d_cam': np.array(scene_pose_2d_cam),
         'pose_3d': np.array(scene_pose_3d),
