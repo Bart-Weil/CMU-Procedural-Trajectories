@@ -108,8 +108,8 @@ pose_impl_3d: PoseImpl instance for 3D poses (model GT)
 benchmark: If True, generates a simplified dataset for benchmarking purposes.
 """
 def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, seed=42):
-    CMU_Dir = '../Datasets/CMU'
-    write_dataset_dir = '../Datasets/CMU_Camera'
+    CMU_Dir = '/vol/bitbucket/bw1222/data/CMU'
+    write_dataset_dir = '/vol/bitbucket/bw1222/data/CMU_Camera'
     
     subjects_dir = os.path.join(CMU_Dir, 'subjects')
     
@@ -120,6 +120,7 @@ def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, seed=42):
         return
     
     for subject in tqdm(os.listdir(subjects_dir)):
+        print(subject)
         subject_path = os.path.join(subjects_dir, subject)
         
         if not os.path.isdir(subject_path):

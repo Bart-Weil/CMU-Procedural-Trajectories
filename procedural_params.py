@@ -26,16 +26,16 @@ r_min, r_max = 2.0, 5.0
 h_min, h_max = 1.0, 2.0
 
 # Cam velocity
-v_min, v_max = 0.0, 0.25
+v_min, v_max = 0.0, 0.5
 
 # Cam acceleration
-a_min, a_max = 0.0, 0.6
+a_min, a_max = 0.0, 0.0
 
 # Cam rotational velocity
-omega_min, omega_max = 0.0, 0.05
+omega_min, omega_max = 0.0, 0.0025
 
 # Cam rotational acceleration
-alpha_min, alpha_max = 0.0, 0.1
+alpha_min, alpha_max = 0.0, 0.01
 
 """
 Parameters for generation of benchmark dataset
