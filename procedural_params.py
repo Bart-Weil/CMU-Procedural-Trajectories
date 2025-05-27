@@ -20,22 +20,22 @@ uniform distribution of their parameter.
 motion_interval = 3.0
 
 # Approx radial distance from the camera to the root joint
-r_min, r_max = 2.0, 5.0
+r_min, r_max = 1.5, 3.0
 
 # Approx camera height
-h_min, h_max = 1.0, 2.0
+h_min, h_max = 1.3, 1.7
 
 # Cam velocity
-v_min, v_max = 0.0, 0.5
+v_min, v_max = 0.0, 0.25
 
 # Cam acceleration
-a_min, a_max = 0.0, 0.0
+a_min, a_max = 0.0, 0.5
 
 # Cam rotational velocity
-omega_min, omega_max = 0.0, 0.0025
+omega_min, omega_max = 0.0, 0.04
 
 # Cam rotational acceleration
-alpha_min, alpha_max = 0.0, 0.01
+alpha_min, alpha_max = 0.0, 0.1
 
 """
 Parameters for generation of benchmark dataset
@@ -56,3 +56,18 @@ v_std = 0.4
 # Angular velocity
 omega_mu = 0.08
 omega_std = 0.05
+
+"""Error terms for the camera pose"""
+# Use cumilative error for camera translation vs per-frame error
+simulate_cam_error = True
+
+cumilative_error = True
+
+cam_position_error_std = 0.1
+cam_rotation_error_std = 0.1
+
+"""Error terms for the human pose"""
+# Keypoint estimation error (px)
+simulate_keypoint_error = True
+
+human_keypoint_error_std = 1.0

@@ -301,8 +301,23 @@ def get_cam_seq(pose, cam_intrinsics, rng):
         x_start, R_start, v_start, a, omega_start, alpha, motion_interval, cam_fps
     )
 
+    if simulate_cam_error:
+        error_mats = get_error_mat_term(rng)    
+
     return {'cameras': [Camera(cam_mat, CAM_INTRINSIC) for cam_mat in cam_mats],
             'cam_velocity': v_mid,
             'cam_acceleration': a,
             'cam_angular_velocity': omega_mid,
             'cam_angular_acceleration': alpha}
+
+def get_error_mat_term(rng):
+    """
+    Simulate error term for camera pose.
+    Returns a list of 3x4 matrices representing the error term.
+    """
+    # Simulate some error in the camera pose
+    translation_error = rng.normal(loc=0.0, scale=cam_position_error_std, size=(SEQ_LEN, 3, 1))
+    rotation_error = rng.normal(loc=0.0, scale=cam_rotation_error_std, size=(SEQ_LEN, 3, 3))
+
+    if cumilative_error:
+        translation_error = np.cumsum(translation_error, axis=0)
