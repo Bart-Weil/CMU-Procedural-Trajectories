@@ -110,12 +110,16 @@ def axis_angle_to_matrix(axis_angle):
     return R.from_rotvec(axis * angle).as_matrix()
 
 
-def get_cam_poses(x_start, R_start, v, a, omega, alpha, motion_interval, CAM_FPS):
+def get_cam_poses(x_start, R_start, v, a, omega, alpha, motion_interval, CAM_FPS, rng):
     t = np.linspace(0, motion_interval, int(motion_interval*CAM_FPS))
 
     xs = np.array([x_start + v*ti + 0.5*a*ti**2 for ti in t])
-
     Rs = [R_start @ axis_angle_to_matrix(omega*ti + 0.5*alpha*ti**2) for ti in t]
+
+    if simulate_cam_error:
+        rotation_error, translation_error = get_error_mat_term(rng)
+        xs += translation_error
+        Rs = rotation_error @ Rs
 
     return [np.hstack((R.T, -R.T @ x.reshape(3, 1))) for R, x in zip(Rs, xs)]
 
@@ -297,12 +301,10 @@ def get_cam_seq(pose, cam_intrinsics, rng):
 
     # Move the camera radially outwards
     x_start += (r_capture * -forward) - (x_mid - pose[0])
-    cam_mats = get_cam_poses(
-        x_start, R_start, v_start, a, omega_start, alpha, motion_interval, cam_fps
-    )
 
-    if simulate_cam_error:
-        error_mats = get_error_mat_term(rng)    
+    cam_mats = get_cam_poses(
+        x_start, R_start, v_start, a, omega_start, alpha, motion_interval, cam_fps, rng
+    )
 
     return {'cameras': [Camera(cam_mat, CAM_INTRINSIC) for cam_mat in cam_mats],
             'cam_velocity': v_mid,
@@ -316,8 +318,10 @@ def get_error_mat_term(rng):
     Returns a list of 3x4 matrices representing the error term.
     """
     # Simulate some error in the camera pose
-    translation_error = rng.normal(loc=0.0, scale=cam_position_error_std, size=(SEQ_LEN, 3, 1))
     rotation_error = rng.normal(loc=0.0, scale=cam_rotation_error_std, size=(SEQ_LEN, 3, 3))
+    translation_error = rng.normal(loc=0.0, scale=cam_position_error_std, size=(SEQ_LEN, 3, 1))
 
     if cumilative_error:
         translation_error = np.cumsum(translation_error, axis=0)
+    
+    return rotation_error, translation_error
