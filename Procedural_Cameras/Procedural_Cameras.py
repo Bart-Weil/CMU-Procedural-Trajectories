@@ -49,8 +49,7 @@ def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
     for i in range(n_seqs):
         start_frame = starts[i]
         end_frame = ends[i]
-        pose_mid = poses[(start_frame + end_frame)//2]
-        cam_seq = get_cam_seq(pose_mid, CAM_INTRINSIC, rng)
+        cam_seq = get_cam_seq(poses, CAM_INTRINSIC, rng)
         cam_seq['start_frame'] = start_frame
         cam_seq['end_frame'] = end_frame
         cam_seq['cam_fps'] = cam_fps
@@ -242,8 +241,10 @@ def get_cam_extrema(x_start, R_start,
             np.hstack([R_end.T, -R_end.T @ x_end.reshape((3, 1))])]
 
 
-def get_cam_seq(pose, cam_intrinsics, rng):
+def get_cam_seq(poses, cam_intrinsics, rng):
 
+    # Middle pose
+    pose = poses[poses.shape[0] // 2]
     r = rng.uniform(r_min, r_max)
     h = rng.uniform(h_min, h_max)
     theta = rng.uniform(0, 2*np.pi)
@@ -302,6 +303,9 @@ def get_cam_seq(pose, cam_intrinsics, rng):
     # Move the camera radially outwards
     x_start += (r_capture * -forward) - (x_mid - pose[0])
 
+    # Offset by start position (normalize to start position)
+    x_start -= poses[0, 0, :]
+    
     cam_mats = get_cam_poses(
         x_start, R_start, v_start, a, omega_start, alpha, motion_interval, cam_fps, rng
     )
@@ -319,7 +323,7 @@ def get_error_mat_term(rng):
     """
     # Simulate some error in the camera pose
     rotation_error = rng.normal(loc=0.0, scale=cam_rotation_error_std, size=(SEQ_LEN, 3, 3))
-    translation_error = rng.normal(loc=0.0, scale=cam_position_error_std, size=(SEQ_LEN, 3, 1))
+    translation_error = rng.normal(loc=0.0, scale=cam_position_error_std, size=(SEQ_LEN, 3))
 
     if cumilative_error:
         translation_error = np.cumsum(translation_error, axis=0)

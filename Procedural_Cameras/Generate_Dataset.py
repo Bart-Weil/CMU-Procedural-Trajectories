@@ -33,6 +33,7 @@ def read_mocap(joints_file, motions_file, pose_impl_2d: PoseImpl, pose_impl_3d: 
 
 
 def pickle_scene(cam_obj_seq, proj_poses_3d, poses_3d, filename, rng):
+
     cam_seq = {
         'cam_extrinsic': np.array([cam.cam_extrinsic for cam in cam_obj_seq['cameras']]),
         'cam_intrinsic': np.array([cam.cam_intrinsic for cam in cam_obj_seq['cameras']]),
@@ -44,13 +45,15 @@ def pickle_scene(cam_obj_seq, proj_poses_3d, poses_3d, filename, rng):
         'end_frame': cam_obj_seq['end_frame'],
     }
 
-    scene_pose_2d = np.array([cam_seq[i].project_points(proj_poses_3d[i]) for i in range(len(cam_seq))])
     
     if simulate_keypoint_error:
         keypoint_error = rng.normal(loc=0, scale=human_keypoint_error_std, size=scene_pose_2d.shape)
         scene_pose_2d += keypoint_error
 
     scene_pose_3d = np.array([poses_3d[i] for i in range(len(cam_obj_seq['cameras']))])
+    scene_pose_3d -= scene_pose_3d[0, 0, :]
+
+    scene_pose_2d = np.array([cam_obj_seq['cameras'][i].project_points(proj_poses_3d[i]) for i in range(len(cam_obj_seq['cameras']))])
 
     scene_pose_3d_cam = []
     for i in range(len(cam_obj_seq['cameras'])):
@@ -61,12 +64,14 @@ def pickle_scene(cam_obj_seq, proj_poses_3d, poses_3d, filename, rng):
 
         scene_pose_3d_cam.append((pose_3d_hom @ cam_ext.T)[:, :3])
 
+    scene_pose_kp_flow = np.diff(scene_pose_2d, axis=0)
 
     scene = {
         'cam_sequence': cam_seq,
         'pose_2d': scene_pose_2d,
         'pose_3d': scene_pose_3d,
-        'pose_3d_cam': np.array(scene_pose_3d_cam)
+        'pose_3d_cam': np.array(scene_pose_3d_cam),
+        'pose_2d_flow': scene_pose_kp_flow,
     }
 
     with open(filename, 'wb') as scene_pickle:
@@ -165,5 +170,5 @@ def load_scene(scene_path):
     cams = [Camera(scene_cams['cam_extrinsic'][i],
                    scene_cams['cam_intrinsic'][i]) for i in range(len(scene_cams['cam_extrinsic']))]
 
-    # return {'cam_obj_sequence': cams, 'pose_2d': pose_2ds, 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}
-    return {'cam_obj_sequence': cams, 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}
+    return {'cam_obj_sequence': cams, 'pose_2d': scene_data['pose_2d'], 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}
+    # return {'cam_obj_sequence': cams, 'pose_3d': pose_3ds, 'pose_3d_cam': scene_pose_3d_cam}

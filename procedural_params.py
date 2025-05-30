@@ -59,15 +59,15 @@ omega_std = 0.05
 
 """Error terms for the camera pose"""
 # Use cumilative error for camera translation vs per-frame error
-simulate_cam_error = True
+simulate_cam_error = False
 
-cumilative_error = True
+cumilative_error = False
 
 cam_position_error_std = 0.1
 cam_rotation_error_std = 0.1
 
 """Error terms for the human pose"""
 # Keypoint estimation error (px)
-simulate_keypoint_error = True
+simulate_keypoint_error = False
 
 human_keypoint_error_std = 1.0
