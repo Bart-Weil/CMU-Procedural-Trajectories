@@ -20,16 +20,16 @@ uniform distribution of their parameter.
 motion_interval = 3.0
 
 # Approx radial distance from the camera to the root joint
-r_min, r_max = 1.5, 3.0
+r_min, r_max = 2.0, 3.0
 
 # Approx camera height
 h_min, h_max = 1.3, 1.7
 
 # Cam velocity
-v_min, v_max = 0.0, 0.25
+v_min, v_max = 0.0, 0.15
 
 # Cam acceleration
-a_min, a_max = 0.0, 0.5
+a_min, a_max = 0.0, 0.25
 
 # Cam rotational velocity
 omega_min, omega_max = 0.0, 0.04

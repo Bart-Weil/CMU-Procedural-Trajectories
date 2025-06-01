@@ -6,16 +6,15 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     # Dataset generation (supplying skeleton for 2d and 3d poses)
-    # gen.generate_dataset(pose_impl_2d=CocoPose.CocoPose(), pose_impl_3d=H36mPose.H36mPose())
+    gen.generate_dataset(pose_impl_2d=H36mPose.H36mPose(), pose_impl_3d=H36mPose.H36mPose())
     
     # Scene loading
-    scene = load_scene("/vol/bitbucket/bw1222/data/CMU_Camera/subjects/24/24_1_01.pkl")
+    scene = load_scene("/vol/bitbucket/bw1222/data/CMU_Camera/subjects/24/24_1_1.pkl")
 
     plot_cam_trajectory(scene["pose_3d"], scene["cam_obj_sequence"])
     scene_len = scene["pose_3d"].shape[0]
-    print(scene["pose_2d"].shape)
-    print(scene["pose_3d"].shape)
-    print("eg 2d pose: ", scene["pose_2d"][scene_len//2])
+    np.set_printoptions(suppress=True)
+    print("eg pose: ", scene["pose_3d"][scene_len//2])
     # Plotting a frame from scene
     plot_human_and_cam_pose(scene["pose_3d"][scene_len//2], H36mPose.H36mPose(), scene['cam_obj_sequence'][scene_len//2])
     
@@ -23,6 +22,6 @@ if __name__ == "__main__":
     # plot_cam_frames(scene['pose_3d'], scene['cam_obj_sequence'], H36mPose.H36mPose(), 'Plots/output', 60)
 
     # Render camera frames
-    # render_scene("/vol/bitbucket/bw1222/data/CMU_Camera/subjects/05/05_3_02.pkl", CocoPose.CocoPose(), framerate=60, filename_prefix="Plots/output")
+    render_scene("/vol/bitbucket/bw1222/data/CMU_Camera/subjects/24/24_1_1.pkl", CocoPose.CocoPose(), framerate=60, filename_prefix="Plots/output")
     
     plt.show()

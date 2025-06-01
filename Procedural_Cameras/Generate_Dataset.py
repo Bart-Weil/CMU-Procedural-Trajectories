@@ -51,7 +51,9 @@ def pickle_scene(cam_obj_seq, proj_poses_3d, poses_3d, filename, rng):
         scene_pose_2d += keypoint_error
 
     scene_pose_3d = np.array([poses_3d[i] for i in range(len(cam_obj_seq['cameras']))])
-    scene_pose_3d -= scene_pose_3d[0, 0, :]
+    root_offset = scene_pose_3d[0, 0, :][np.newaxis, np.newaxis, :].copy()
+    scene_pose_3d -= root_offset
+    proj_poses_3d -= root_offset
 
     scene_pose_2d = np.array([cam_obj_seq['cameras'][i].project_points(proj_poses_3d[i]) for i in range(len(cam_obj_seq['cameras']))])
 
@@ -84,7 +86,7 @@ def generate_from_mocap(filename_prefix,
                         pose_impl_2d: PoseImpl,
                         pose_impl_3d: PoseImpl,
                         rng):
-    n_paths = 15
+    n_paths = 5
 
     proj_poses_3d, poses_3d = read_mocap(joints_file, motions_file, pose_impl_2d, pose_impl_3d)
 

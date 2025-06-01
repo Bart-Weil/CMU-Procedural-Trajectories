@@ -34,7 +34,7 @@ def rotation_about_normal(n, omega):
     return R
 
 
-# Generate camera trajectories
+# generate camera trajectories
 def generate_cam_seqs(poses: List[npt.NDArray[np.float64]],
                       n_seqs: int,
                       rng) -> List[List[Camera]]:
@@ -85,9 +85,6 @@ def point_to_line_distance(point, line_start, line_end):
 
 
 def get_min_r_to_capture(point_to_capture, cam_look_at, cam_extrinsic, cam_intrinsic):
-    """
-    get distance required to move along view direction until point_to_capture is just visible
-    """
     x = -cam_extrinsic[:, :3].T @ cam_extrinsic[:, 3]
     min_d = point_to_line_distance(point_to_capture, x, x+cam_look_at)
     # Point angle relative to pixel space x-axis
@@ -101,7 +98,6 @@ def get_min_r_to_capture(point_to_capture, cam_look_at, cam_extrinsic, cam_intri
 
 
 def axis_angle_to_matrix(axis_angle):
-    """Convert an axis-angle vector to a rotation matrix."""
     angle = np.linalg.norm(axis_angle)
     if angle == 0:
         return np.eye(3)
@@ -122,18 +118,11 @@ def get_cam_poses(x_start, R_start, v, a, omega, alpha, motion_interval, CAM_FPS
 
     return [np.hstack((R.T, -R.T @ x.reshape(3, 1))) for R, x in zip(Rs, xs)]
 
-# ------------------------------------------------------------------
-# helper: axis–angle  ➜  3 × 3 rotation matrix  (Rodrigues formula)
-# ------------------------------------------------------------------
 def axis_angle_to_matrix(theta, tol=1e-12):
-    """
-    theta : (3,) array-like, axis-angle vector  (rad⋅axis)
-    return: (3,3) ndarray  rotation matrix
-    """
     theta = np.asarray(theta, dtype=float)
     angle = np.linalg.norm(theta)
 
-    if angle < tol:                           # ~ zero rotation
+    if angle < tol:
         return np.eye(3)
 
     axis = theta / angle
@@ -145,15 +134,7 @@ def axis_angle_to_matrix(theta, tol=1e-12):
             np.sin(angle) * K +
             (1.0 - np.cos(angle)) * K @ K)
 
-
-# ------------------------------------------------------------------
-# helper: times when |u t + ½ a t²| is extremal (we wrote this last time)
-# ------------------------------------------------------------------
-def extremum_times(u, a, *, tol=1e-12):
-    """
-    Return the positive real roots of ½ a² t² + 3/2(u·a) t + u² = 0.
-    They are the instants when the displacement |u t + ½ a t²| is extremal.
-    """
+def extremum_times(u, a, *, epsilon=1e-12):
     u = np.asarray(u, dtype=float)
     a = np.asarray(a, dtype=float)
 
@@ -161,28 +142,20 @@ def extremum_times(u, a, *, tol=1e-12):
     ua = np.dot(u, a)
     aa = np.dot(a, a)
 
-    if aa < tol:                 # no acceleration → monotone
+    if aa < epsilon:
         return np.empty(0)
 
-    coeff = [0.5 * aa, 1.5 * ua, uu]   # quadratic in t
+    coeff = [0.5 * aa, 1.5 * ua, uu]
     roots = np.roots(coeff)
 
-    roots = roots[np.isreal(roots)].real      # keep real
-    return np.sort(roots[roots > tol])        # keep positive
+    roots = roots[np.isreal(roots)].real
+    return np.sort(roots[roots > epsilon])
 
 def get_cam_extrema(x_start, R_start,
                     v, a,
                     omega, alpha,
                     motion_interval, *, tol=1e-12):
-    """
-    Compute camera extrinsics at:
-      0.  start (t = 0)
-      1.  end   (t = Δt)
-      2.  position & orientation extrema inside (0, Δt]
-
-    Returns  a list of three 3×4 camera matrices  [R | -Rᵀ x]
-    """
-    # --- make all vectors numpy arrays ---
+    
     x_start = np.asarray(x_start, dtype=float)
     v       = np.asarray(v,       dtype=float)
     a       = np.asarray(a,       dtype=float)
@@ -190,18 +163,14 @@ def get_cam_extrema(x_start, R_start,
     alpha   = np.asarray(alpha,   dtype=float)
     R_start = np.asarray(R_start, dtype=float)
 
-    # ------------------------------------------------------------------
-    # 1) ***POSITION***  — find t_max_pos ∈ (0, Δt] that maximises |Δx|
-    # ------------------------------------------------------------------
     t_pos_cand = extremum_times(v, a)
     t_pos_cand = t_pos_cand[t_pos_cand <= motion_interval + tol]
 
-    if t_pos_cand.size == 0:           # monotone → furthest at the end
+    if t_pos_cand.size == 0:
         t_max_pos = motion_interval
     else:
-        # also compare with the distance at t = Δt
         t_all = np.append(t_pos_cand, motion_interval)
-        disp = v * t_all[:, None] + 0.5 * a * t_all[:, None]**2   # Δx(t)
+        disp = v * t_all[:, None] + 0.5 * a * t_all[:, None]**2
         idx = np.argmax(np.linalg.norm(disp, axis=1))
         t_max_pos = t_all[idx]
 
@@ -210,9 +179,6 @@ def get_cam_extrema(x_start, R_start,
     max_pos_R = R_start @ axis_angle_to_matrix(omega * t_max_pos + 0.5 * alpha * t_max_pos**2)
     max_pos_mat = np.hstack([max_pos_R.T, -max_pos_R.T @ x_start.reshape((3, 1))])
 
-    # ------------------------------------------------------------------
-    # 2) ***ORIENTATION***  — same idea on θ(t) = ω t + ½ α t²
-    # ------------------------------------------------------------------
     t_ang_cand = extremum_times(omega, alpha)
     t_ang_cand = t_ang_cand[t_ang_cand <= motion_interval + tol]
 
@@ -233,9 +199,6 @@ def get_cam_extrema(x_start, R_start,
     max_ang_pos = x_start + v * t_max_ang + 0.5 * a * t_max_ang**2
     max_ang_mat = np.hstack([R_max.T, -R_max.T @ max_ang_pos.reshape((3, 1))])
 
-    # ------------------------------------------------------------------
-    # build the 3 × 4 extrinsic blocks   [ R  |  x ]
-    # ------------------------------------------------------------------
     return [np.hstack([R_start.T, -R_start.T @ x_start.reshape((3, 1))]),
             max_pos_mat, max_ang_mat,
             np.hstack([R_end.T, -R_end.T @ x_end.reshape((3, 1))])]
