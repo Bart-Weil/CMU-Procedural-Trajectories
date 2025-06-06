@@ -1,10 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # This import registers the 3D projection, even if not used directly.
 from tqdm import tqdm
 
 import pickle
-import os, sys
+import os
 
 from Procedural_Cameras.AMCParser.amc_parser import *
 from Procedural_Cameras.Camera import *
@@ -51,9 +49,6 @@ def pickle_scene(cam_obj_seq, proj_poses_3d, poses_3d, filename, rng):
         scene_pose_2d += keypoint_error
 
     scene_pose_3d = np.array([poses_3d[i] for i in range(len(cam_obj_seq['cameras']))])
-    root_offset = scene_pose_3d[0, 0, :][np.newaxis, np.newaxis, :].copy()
-    scene_pose_3d -= root_offset
-    proj_poses_3d -= root_offset
 
     scene_pose_2d = np.array([cam_obj_seq['cameras'][i].project_points(proj_poses_3d[i]) for i in range(len(cam_obj_seq['cameras']))])
 
