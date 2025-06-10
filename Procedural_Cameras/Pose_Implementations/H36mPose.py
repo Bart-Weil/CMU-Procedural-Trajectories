@@ -9,7 +9,6 @@ from Procedural_Cameras.AMCParser.amc_parser import *
 from Procedural_Cameras.Pose_Implementations.PoseImpl import *
 
 class H36mPose(CMU_Pose):
-    # Depth first ordering of CMU joints
     joint_names = ['Pelvis', 'RHip', 'RKnee',
               'RAnkle', 'LHip', 'LKnee',
               'LAnkle', 'Spine1', 'Neck',

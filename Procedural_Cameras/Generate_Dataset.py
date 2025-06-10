@@ -108,11 +108,8 @@ pose_impl_2d: PoseImpl instance for 2D poses (model input)
 pose_impl_3d: PoseImpl instance for 3D poses (model GT)
 benchmark: If True, generates a simplified dataset for benchmarking purposes.
 """
-def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, seed=42):
-    CMU_Dir = '/vol/bitbucket/bw1222/data/CMU'
-    write_dataset_dir = '/vol/bitbucket/bw1222/data/CMU_Camera'
-    
-    subjects_dir = os.path.join(CMU_Dir, 'subjects')
+def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, CMU_dir, write_dir, seed=42):
+    subjects_dir = os.path.join(CMU_dir, 'subjects')
     
     rng = np.random.default_rng(seed)
 
@@ -145,7 +142,7 @@ def generate_dataset(pose_impl_2d: PoseImpl, pose_impl_3d: PoseImpl, seed=42):
             motion_file = os.path.join(subject_path, motion)
             
             # Ensure output directory exists
-            output_dir = os.path.join(write_dataset_dir, 'subjects', subject)
+            output_dir = os.path.join(write_dir, 'subjects', subject)
             os.makedirs(output_dir, exist_ok=True)
             
             prefix = os.path.join(output_dir, subject + '_' + f'{i+1}')

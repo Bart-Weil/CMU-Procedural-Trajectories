@@ -265,9 +265,6 @@ def get_cam_seq(poses, cam_intrinsics, rng):
 
     # Move the camera radially outwards
     x_start += (r_capture * -forward) - (x_mid - pose[0])
-
-    # Offset by start position (normalize to start position)
-    x_start -= poses[0, 0, :]
     
     cam_mats = get_cam_poses(
         x_start, R_start, v_start, a, omega_start, alpha, motion_interval, cam_fps, rng

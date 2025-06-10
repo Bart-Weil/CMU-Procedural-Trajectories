@@ -9,7 +9,6 @@ from Procedural_Cameras.AMCParser.amc_parser import *
 from Procedural_Cameras.Pose_Implementations.PoseImpl import *
 
 class CocoPose(CMU_Pose):
-    # Depth first ordering of CMU joints
     joint_names = [
     'NOSE', 'L_EYE', 'R_EYE', 'L_EAR', 
     'R_EAR', 'L_SHOULDER', 'R_SHOULDER',
