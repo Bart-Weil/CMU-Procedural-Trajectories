@@ -9,7 +9,7 @@ from Procedural_Cameras.AMCParser.amc_parser import *
 from Procedural_Cameras.Pose_Implementations.PoseImpl import *
 
 class CocoPose(CMU_Pose):
-    adjacency = [
+    joint_names = [
         'NOSE', 'NECK', 'R_SHOULDER',
         'R_ELBOW', 'R_WRIST', 'L_SHOULDER',
         'L_ELBOW', 'L_WRIST', 'R_HIP',
