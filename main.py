@@ -9,21 +9,23 @@ if __name__ == "__main__":
     write_dir = '/vol/bitbucket/bw1222/data/CMU_Camera_3DPW'
     # Dataset generation (supplying skeleton for 2d and 3d poses)
     gen.generate_dataset(CocoPose.CocoPose(), SMPLPose.SMPLPose(), CMU_dir, write_dir)
-    
+    # gen.generate_dataset(H36mPose.H36mPose(), H36mPose.H36mPose(), CMU_dir, write_dir)
+
     # Scene loading
-    scene = load_scene("/vol/bitbucket/bw1222/data/CMU_Camera_3DPW/subjects/24/24_1_2.pkl")
+    scene = load_scene("/vol/bitbucket/bw1222/data/CMU_Camera_3DPW/subjects/24/24_1_5.pkl")
 
     plot_cam_trajectory(scene["pose_3d"], scene["cam_obj_sequence"])
     scene_len = scene["pose_3d"].shape[0]
     np.set_printoptions(suppress=True)
     print("eg pose: ", scene["pose_3d"][scene_len//2])
+    plot_human_and_cam_pose(scene["pose_3d"][scene_len//2], SMPLPose.SMPLPose(), scene["cam_obj_sequence"][scene_len//2])
     # Plotting a frame from scene
     plot_human_and_cam_pose(scene["pose_3d"][0], SMPLPose.SMPLPose(), scene['cam_obj_sequence'][0])
     
     # Plot scene with projected floor
-    # plot_cam_frames(scene['pose_3d'], scene['cam_obj_sequence'], H36mPose.H36mPose(), 'Plots/output', 60)
+    plot_cam_frames(scene['pose_3d'][scene_len//2: scene_len//2 + 2], scene['cam_obj_sequence'][scene_len//2:scene_len//2 + 2], SMPLPose.SMPLPose(), 'Plots/midframe', 60)
 
     # Render camera frames
-    render_scene("/vol/bitbucket/bw1222/data/CMU_Camera_3DPW/subjects/24/24_1_2.pkl", CocoPose.CocoPose(), framerate=60, filename_prefix="Plots/output")
+    # render_scene("/vol/bitbucket/bw1222/data/CMU_Camera_3DPW/subjects/24/24_1_2.pkl", CocoPose.CocoPose(), framerate=60, filename_prefix="Plots/output")
     
     plt.show()

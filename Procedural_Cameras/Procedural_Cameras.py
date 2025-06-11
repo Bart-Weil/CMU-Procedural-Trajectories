@@ -94,7 +94,7 @@ def get_min_r_to_capture(point_to_capture, cam_look_at, cam_extrinsic, cam_intri
     # Assume point is on screen boundary
     dist_to_screen_boundary = min(o_x/abs(np.cos(pixel_angle)), o_y/abs(np.sin(pixel_angle)))
     
-    return 2 * max(F_x, F_y) * min_d/dist_to_screen_boundary
+    return max(F_x, F_y) * min_d/dist_to_screen_boundary
 
 
 def axis_angle_to_matrix(axis_angle):
@@ -264,7 +264,7 @@ def get_cam_seq(poses, cam_intrinsics, rng):
                 r_capture = safe_r
 
     # Move the camera radially outwards
-    x_start += (r_capture * -forward) - (x_mid - pose[0])
+    x_start += r_capture * -forward
     
     cam_mats = get_cam_poses(
         x_start, R_start, v_start, a, omega_start, alpha, motion_interval, cam_fps, rng
