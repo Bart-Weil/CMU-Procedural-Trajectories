@@ -9,32 +9,34 @@ from Procedural_Cameras.AMCParser.amc_parser import *
 from Procedural_Cameras.Pose_Implementations.PoseImpl import *
 
 class CocoPose(CMU_Pose):
-    joint_names = [
-    'NOSE', 'L_EYE', 'R_EYE', 'L_EAR', 
-    'R_EAR', 'L_SHOULDER', 'R_SHOULDER',
-    'L_ELBOW', 'R_ELBOW', 'L_WRIST',
-    'R_WRIST', 'L_HIP', 'R_HIP',
-    'L_KNEE', 'R_KNEE', 'L_ANKLE',
-    'R_ANKLE']
+    adjacency = [
+        'NOSE', 'NECK', 'R_SHOULDER',
+        'R_ELBOW', 'R_WRIST', 'L_SHOULDER',
+        'L_ELBOW', 'L_WRIST', 'R_HIP',
+        'R_KNEE', 'R_ANKLE', 'L_HIP',
+        'L_KNEE', 'L_ANKLE', 'R_EYE',
+        'L_EYE', 'R_EAR', 'L_EAR',
+    ]
 
     adjacency = {
-        'NOSE': ['L_EYE', 'R_EYE', 'L_EAR', 'R_EAR'],
-        'L_EYE': [],
-        'R_EYE': [],
-        'L_EAR': [], 
-        'R_EAR': [],
-        'L_SHOULDER': ['L_ELBOW', 'R_SHOULDER', 'NOSE', 'L_HIP'],
-        'R_SHOULDER': ['R_ELBOW', 'NOSE', 'R_HIP'],
-        'L_ELBOW': ['L_WRIST'],
+        'NOSE': ['L_EYE', 'R_EYE', 'L_EAR', 'R_EAR', 'NECK'],
+        'NECK': ['L_SHOULDER', 'R_SHOULDER', 'L_HIP', 'R_HIP'],
+        'R_SHOULDER': ['R_ELBOW'],
         'R_ELBOW': ['R_WRIST'],
-        'L_WRIST': [],
         'R_WRIST': [],
-        'L_HIP': ['L_KNEE', 'R_HIP'],
+        'L_SHOULDER': ['L_ELBOW'],
+        'L_ELBOW': ['L_WRIST'],
+        'L_WRIST': [],
         'R_HIP': ['R_KNEE'],
-        'L_KNEE': ['L_ANKLE'],
         'R_KNEE': ['R_ANKLE'],
+        'R_ANKLE': [],
+        'L_HIP': ['L_KNEE'],
+        'L_KNEE': ['L_ANKLE'],
         'L_ANKLE': [],
-        'R_ANKLE': []
+        'R_EYE': [],
+        'L_EYE': [],
+        'R_EAR': [], 
+        'L_EAR': [],
     }
 
     def set_joints(self, cmu_joints):
@@ -101,23 +103,24 @@ class CocoPose(CMU_Pose):
 
         self.joint_locs = {
             'NOSE': coco_head + nose_offset,
-            'L_EYE': coco_head + l_eye_offset,
-            'R_EYE': coco_head + r_eye_offset,
-            'L_EAR': coco_head + l_ear_offset,
-            'R_EAR': coco_head + r_ear_offset,
-            'L_SHOULDER': cmu_joints['lclavicle'] - l_shoulder_offset,
+            'NECK': cmu_joints['lowerneck'],
             'R_SHOULDER': cmu_joints['rclavicle'] - r_shoulder_offset,
-            'L_ELBOW': cmu_joints['lhumerus'] - l_shoulder_offset,
             'R_ELBOW': cmu_joints['rhumerus'] - r_shoulder_offset,
-            'L_WRIST': cmu_joints['lwrist'] - l_shoulder_offset,
             'R_WRIST': cmu_joints['rwrist'] - r_shoulder_offset,
-            'L_HIP': cmu_joints['lhipjoint'],
+            'L_SHOULDER': cmu_joints['lclavicle'] - l_shoulder_offset,
+            'L_ELBOW': cmu_joints['lhumerus'] - l_shoulder_offset,
+            'L_WRIST': cmu_joints['lwrist'] - l_shoulder_offset,
             'R_HIP': cmu_joints['rhipjoint'],
-            'L_KNEE': cmu_joints['lfemur'],
             'R_KNEE': cmu_joints['rfemur'],
+            'R_ANKLE': cmu_joints['rfoot'],
+            'L_HIP': cmu_joints['lhipjoint'],
+            'L_KNEE': cmu_joints['lfemur'],
             'L_ANKLE': cmu_joints['lfoot'],
-            'R_ANKLE': cmu_joints['rfoot']
-        }
+            'R_EYE': coco_head + r_eye_offset,
+            'L_EYE': coco_head + l_eye_offset,
+            'R_EAR': coco_head + r_ear_offset,
+            'L_EAR': coco_head + l_ear_offset,
+            }
 
     def get_joint_locs(self):
         return np.array(np.vstack(list(self.joint_locs.values())))
